@@ -1,3 +1,4 @@
+#include "stm32f0xx_adc.h"
 #include "stm32f0xx_dac.h"
 #include "stm32f0xx_exti.h"
 #include "stm32f0xx_gpio.h"
@@ -12,6 +13,9 @@
 #include "galaxians.h"
 #include "statusbar.h"
 #include "menu.h"
+#include "cross-big.h"
+#include "cross-tdot.h"
+#include "cross-milt.h"
 
 extern void Delay(volatile int i) {
     for (; i != 0; i--);
@@ -19,14 +23,11 @@ extern void Delay(volatile int i) {
 
 uint16_t row = 0;
 
-const char pattern[] = {
-//    0xaa, 0x14, 0xa5, 0x5a, 0x73, 0xc5, 0x93, 0x89
-      0x14, 0x00, 0x51, 0x04, 0x00, 0x00, 0x00, 0x01,
-      //0x00, 0x00, 0x00, 0x00, 0x40,
-};
+unsigned char statusbar_ram_bits[statusbar_width / 8];
 
 #define STATUSBAR_START 25
 #define MAINWIN_START 120
+#define CROSS_CENTRE 172
 
 uint16_t start_inv = MAINWIN_START + 3, end_inv = MAINWIN_START + 14;
 
@@ -47,16 +48,68 @@ enum buttons {
     button_up,
     button_down,
     button_enter,
-    button_exit
+    button_exit,
+    button_count,
+    button_max = button_count - 1
+};
+
+enum cross_type {
+    cross_type_big,
+    cross_type_tdot,
+    cross_type_milt
+};
+
+const unsigned char cross_height[] = {
+    [cross_type_big] = cross_big_height,
+    [cross_type_tdot] = cross_tdot_height,
+    [cross_type_milt] = cross_milt_height
 };
 
 int button = button_none;
+
+int cross_type = cross_type_big;
+
+bool menu = false;
+
+#define HCOUNT_OFF   -2
+#define HCOUNT_ON     0
+#define HCOUNT_REPEAT 25
 
 typedef void (*fn_t)(void);
 
 int current_item = 0;
 
 #define MENU_LENGTH ((menu_height / 16))
+
+int current_input = 1;
+
+int current_zoom = 2;
+
+static void update_status(void) {
+    int i;
+    statusbar_ram_bits[0] = current_input;
+    for (i = 1; i <= 17; i++) {
+        statusbar_ram_bits[i] = 0;
+    }
+    switch (current_zoom) {
+        case 1:
+            statusbar_ram_bits[13] = 4;
+            statusbar_ram_bits[14] = 5;
+            break;
+        case 2:
+            statusbar_ram_bits[13] = 6;
+            statusbar_ram_bits[14] = 7;
+            break;
+        default:
+            statusbar_ram_bits[13] = 0;
+            statusbar_ram_bits[14] = 0;
+            break;
+    }
+
+    for (i = 18; i < (statusbar_width / 8); i++) {
+        statusbar_ram_bits[i] = i;
+    }
+}
 
 static void next(void) {
     current_item = (current_item + 1) % MENU_LENGTH;
@@ -65,43 +118,105 @@ static void next(void) {
 }
 
 static void prev(void) {
-    current_item = (current_item + 1) % MENU_LENGTH;
+    if (current_item == 0) {
+        current_item = MENU_LENGTH - 1;
+    } else {
+        current_item--;
+    }
     start_inv = MAINWIN_START + 3 + current_item * 16;
     end_inv = MAINWIN_START + 14 + current_item * 16;
 }
 
-const fn_t main_menu[][3] = {
-    {NULL, prev, next},
-    {NULL, prev, next},
-    {NULL, prev, next},
-    {NULL, prev, next},
-    {NULL, prev, next},
-    {NULL, prev, next}
+static void switch_menu(void) {
+    if (menu) {
+        menu = false;
+    } else {
+        if (cross_type == cross_type_milt) {
+            cross_type = cross_type_big;
+            menu = true;
+        } else {
+            cross_type++;
+        }
+    }
+}
+
+typedef const fn_t menu_t[MENU_LENGTH][button_count];
+
+menu_t main_menu = {
+    {NULL, prev, next, switch_menu, NULL},
+    {NULL, prev, next, NULL,        NULL},
+    {NULL, prev, next, NULL,        NULL},
+    {NULL, prev, next, NULL,        NULL},
+    {NULL, prev, next, NULL,        NULL},
+    {NULL, prev, next, NULL,        NULL}
 };
+
+menu_t * current_menu = &main_menu;
+
+#define STEPS 5
+#define STEPWIDTH (1024/STEPS)
+
+uint8_t codes[] = {button_enter, button_up, button_down, button_up, button_down, 0};
+
+volatile uint16_t adcval;
+volatile uint16_t DACVal = 0x057f;
+
+uint8_t debounced_code = 0;
+
+volatile int8_t hcount = 0;
+
+static void buttons(void)
+{
+    adcval = ADC_GetConversionValue(ADC1);
+    ADC_StartOfConversion(ADC1);
+
+    uint16_t temp = adcval / 4;
+    temp += (STEPWIDTH/2);
+    temp /= STEPWIDTH;
+    debounced_code = codes[temp];
+
+    if (debounced_code == 0) {
+        hcount = HCOUNT_OFF;
+    } else {
+        if (hcount == HCOUNT_ON) {
+            button = debounced_code;
+        }
+        if ((hcount == HCOUNT_ON) || (hcount >= HCOUNT_REPEAT)) {
+            if ((debounced_code != button_exit) && (debounced_code != button_enter)) {
+                hcount = HCOUNT_ON;
+            }
+        }
+        hcount++;
+    }
+}
 
 void EXTI4_15_IRQHandler(void)
 {
     if(EXTI_GetITStatus(EXTI_Line8) != RESET)
     {
         if (GPIOB->IDR & GPIO_Pin_7) {
-            if (row < 300) {
+            if (row < 400) {
                 row++;
             }
 
-            if (row < STATUSBAR_START) {
+            if (row == (STATUSBAR_START - 2)) {
                 if (button != button_none) {
-                    main_menu[current_item][button]();
+                    if ((*current_menu)[current_item][button]) {
+                        (*current_menu)[current_item][button]();
+                    }
                     button = button_none;
                 }
+
+                buttons();
             } else if ((row > STATUSBAR_START) && (row < (STATUSBAR_START + 16))) {
                 Delay(100);
 
                 int i;
                 const char * ptr = &statusbar_bits[row - STATUSBAR_START][0];
-                SPI_SendData8(SPI1, ~(*(ptr++)));
-                SPI_SendData8(SPI1, ~(*(ptr++)));
+                SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[0]]));
+                SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[1]]));
                 for (i = 2; i < (statusbar_width / 8) - 2; i++) {
-                    SPI_SendData8(SPI1, ~(*(ptr++)));
+                    SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[i]]));
                     while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
                 }
                 static bool batteryblink = true;
@@ -109,24 +224,24 @@ void EXTI4_15_IRQHandler(void)
                 if (++count == 350) {
                     count = 0;
                     batteryblink = !batteryblink;
-                    button = button_down;
+                    //button = button_down;
                 }
                 if (batteryblink && battery_low) {
-                    SPI_SendData8(SPI1, ~(*(ptr++)));
-                    SPI_SendData8(SPI1, ~(*(ptr++)));
+                    SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[i]]));
+                    SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[i + 1]]));
                 } else {
                     SPI_SendData8(SPI1, 0xff);
                     SPI_SendData8(SPI1, 0xff);
                 }
                 SPI_SendData8(SPI1, 0xff);
-
-            } else if ((row > MAINWIN_START) && (row < (MAINWIN_START + menu_height - 1))) {
+            } else if ((menu) && ((row > MAINWIN_START) && (row < (MAINWIN_START + menu_height - 1)))) {
                 Delay(160);
 
                 int i;
-                const char * ptr = &menu_bits[row - MAINWIN_START][0];
-                bool selected = (row < start_inv) || (row > end_inv);
-                if (selected) {
+                const char * ptr;
+                ptr = &menu_bits[row - MAINWIN_START][0];
+                bool notselected = ((row < start_inv) | (row > end_inv));
+                if (notselected) {
                     SPI_SendData8(SPI1, ~(*(ptr++)));
                     SPI_SendData8(SPI1, ~(*(ptr++)));
                 } else {
@@ -135,13 +250,37 @@ void EXTI4_15_IRQHandler(void)
                 }
                 for (i = 2; i < (menu_width / 8); i++) {
                     uint8_t data = (*(ptr++));
-                    if (selected) {
+                    if (notselected) {
                         data ^= 0xff;
                     }
                     SPI_SendData8(SPI1, data);
                     while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
                 }
                 SPI_SendData8(SPI1, 0xff);
+            } else if ((!menu) && ((row > (CROSS_CENTRE - cross_height[cross_type] / 2)) && (row < (CROSS_CENTRE + cross_height[cross_type] / 2 - 1)))) {
+                uint16_t CROSS_START = CROSS_CENTRE - cross_height[cross_type] / 2;
+                Delay(160);
+
+                int i;
+                const char * ptr;
+                const char * ptrs[] = {
+                    [cross_type_big]  = &cross_big_lines[cross_big_bits[row - CROSS_START]][0],
+                    [cross_type_tdot] = &cross_tdot_lines[cross_tdot_bits[row - CROSS_START]][0],
+                    [cross_type_milt] = &cross_milt_lines[cross_milt_bits[row - CROSS_START]][0]
+                };
+
+                ptr = ptrs[cross_type];
+
+                SPI_SendData8(SPI1, ~(*(ptr++)));
+                SPI_SendData8(SPI1, ~(*(ptr++)));
+                for (i = 2; i < (menu_width / 8); i++) {
+                    uint8_t data = (*(ptr++));
+                    data ^= 0xff;
+                    SPI_SendData8(SPI1, data);
+                    while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
+                }
+                SPI_SendData8(SPI1, 0xff);
+
             }
         } else {
             row = 0;
@@ -158,6 +297,8 @@ int main(void)
     EXTI_InitTypeDef EXTI_InitStructure;
     NVIC_InitTypeDef NVIC_InitStructure;
     SPI_InitTypeDef SPI_InitStructure;
+    ADC_InitTypeDef ADC_InitStructure;
+    DAC_InitTypeDef DAC_InitStructure;
 
 /* Enable the GPIO_LED Clock */
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB, ENABLE);
@@ -168,8 +309,6 @@ int main(void)
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_Level_1;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
-
-    DAC_InitTypeDef    DAC_InitStructure;
 
     /* Enable GPIOA clock */
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
@@ -243,34 +382,42 @@ int main(void)
 
     GPIO_PinAFConfig(GPIOA, GPIO_PinSource7, GPIO_AF_0);
 
-    uint16_t ADCVal = 0x04ff;
+    /* ADC1 Periph clock enable */
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_ADC1, ENABLE);
+
+    /* Configure ADC Channel11 as analog input */
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+    ADC_DeInit(ADC1);
+    ADC_StructInit(&ADC_InitStructure);
+    /* Configure the ADC1 in continuous mode withe a resolution equal to 12 bits*/
+    ADC_InitStructure.ADC_Resolution = ADC_Resolution_12b;
+    ADC_InitStructure.ADC_ContinuousConvMode = ENABLE;
+    ADC_InitStructure.ADC_ExternalTrigConvEdge = ADC_ExternalTrigConvEdge_None;
+    ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;
+    ADC_InitStructure.ADC_ScanDirection = ADC_ScanDirection_Upward;
+    ADC_Init(ADC1, &ADC_InitStructure);
+
+    /* Convert the ADC1 Channel 0 with 1.5 Cycles as sampling time */
+    ADC_ChannelConfig(ADC1, ADC_Channel_0, ADC_SampleTime_1_5Cycles);
+
+    ADC_GetCalibrationFactor(ADC1);
+    ADC_Cmd(ADC1, ENABLE);
+    while(!ADC_GetFlagStatus(ADC1, ADC_FLAG_ADRDY));
+    ADC_WaitModeCmd(ADC1, ENABLE);
+    ADC_StartOfConversion(ADC1);
+
+    update_status();
+
     int16_t dir = +1;
+
+    DAC_SetChannel1Data(DAC_Align_12b_R, DACVal);
 
     while(1)
     {
-        /* Toggle LED */
-        //GPIOB->ODR ^= GPIO_Pin_3;
-        DAC_SetChannel1Data(DAC_Align_12b_R, ADCVal);
-        if (dir > 0) {
-            if (ADCVal == 0x4ff) {
-                dir = -1;
-            } else {
-                //ADCVal++;
-            }
-        } else {
-            if (ADCVal == 0x1ff) {
-                dir = +1;
-            } else {
-                //ADCVal--;
-            }
-        }
-
-        Delay(1000);
-
-        /* Toggle LED */
-        //GPIOB->ODR ^= GPIO_Pin_3;
-
-        Delay(1000);
     }
 }
 

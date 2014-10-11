@@ -100,6 +100,10 @@
 
 #define WEAK __attribute__ ((weak))
 
+#ifndef RCC_CFGR_PLLMULLX
+#define RCC_CFGR_PLLMULLX RCC_CFGR_PLLMULL2
+#endif
+
 void WEAK SystemInit(void);
 void WEAK SystemCoreClockUpdate(void);
 void WEAK SetSysClock(void);
@@ -327,7 +331,7 @@ static void SetSysClock1(void)
 
     /* PLL configuration = HSE * 2 = 48 MHz */
     RCC->CFGR &= (uint32_t)((uint32_t)~(RCC_CFGR_PLLSRC | RCC_CFGR_PLLXTPRE | RCC_CFGR_PLLMULL));
-    RCC->CFGR |= (uint32_t)(RCC_CFGR_PLLSRC_PREDIV1 | RCC_CFGR_PLLXTPRE_PREDIV1 | RCC_CFGR_PLLMULL2);
+    RCC->CFGR |= (uint32_t)(RCC_CFGR_PLLSRC_PREDIV1 | RCC_CFGR_PLLXTPRE_PREDIV1 | RCC_CFGR_PLLMULLX);
             
     /* Enable PLL */
     RCC->CR |= RCC_CR_PLLON;

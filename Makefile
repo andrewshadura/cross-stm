@@ -18,6 +18,16 @@ WARN ?= -Wall
 
 DEFINES ?= -D$(CPU) -DSTM32F0XX_MD -DUSE_STDPERIPH_DRIVER -D__ASSEMBLY__
 
+X ?= 24
+
+ifeq ($(X),16)
+DEFINES += -DRCC_CFGR_PLLMULLX=RCC_CFGR_PLLMULL3
+endif
+
+ifeq ($(X),24)
+DEFINES += -DRCC_CFGR_PLLMULLX=RCC_CFGR_PLLMULL2
+endif
+
 INCLUDES ?= -I. -I./stm32_lib -I./cmsis_boot -I./cmsis_core -I./stm32_lib/inc
 
 CFLAGS ?= -mcpu=$(CPU_FAMILY) -mthumb $(WARN) -ffunction-sections $(DEBUG) -O$(OPT) $(DEFINES) $(INCLUDES)
@@ -53,7 +63,20 @@ XBMFLAGS=-Dstatic= -Dunsigned=const -x c
 
 .xbm.h:
 	head -n2 < $< > $@
-	name="$$(sed -n '/define.*width/{s/_.*//g;s/.* //g;p}' $<)"; echo "extern const char $${name}_bits[][$${name}_width / 8];" >> $@
+	name="$$(sed -n '/define.*width/{s/_width.*//g;s/.* //g;p}' $<)"; echo "extern const char $${name}_bits[][$${name}_width / 8];" >> $@
+
+cross-%.c: cross-%.xbm
+	name="$$(sed -n '/define.*width/{s/_width.*//g;s/.* //g;p}' $<)"; echo $$name; xbmtopbm $< | ./sortpnm.tcl $$name > $@
+
+cross-%.h: cross-%.c
+	head -n2 < ${<:.c=.xbm} > $@
+	sed -n -e 's,const,extern const,g' -e '/const/s, =.*$$,;,gp' $< >> $@
 
 program: $(PROG).hex
 	stm32flash -w $< /dev/ttyUSB0
+
+export: $(PROG).hex
+	cp $< /tmp/test-$(X)-$$(date +\%H.\%M.\%S).hex
+
+clean:
+	rm -f $(SRC:.c=.o) $(patsubst %.s,%.o,$(LIB:.c=.o)) $(patsubst %.xbm,%.o,$(wildcard *.xbm))
