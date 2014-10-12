@@ -18,6 +18,38 @@
 #include "cross-tdot-mini.h"
 #include "cross-milt.h"
 
+struct coords_t {
+    uint16_t x;
+    uint16_t y;
+};
+
+struct setting_t {
+    struct coords_t coords[3];
+    uint8_t brightness;
+    uint8_t cross_type;
+};
+
+struct settings_t {
+    /*
+        for each user:
+            for each zoom: coords
+            brightness
+            cross type
+     */
+    struct setting_t users[4];
+    uint32_t seqno;
+    uint32_t invalid;
+};
+
+struct settings_t __attribute__((section (".flash.page30"))) settings0 = {
+    .invalid = 0xffffffff
+};
+struct settings_t __attribute__((section (".flash.page31"))) settings1 = {
+    .invalid = 0xffffffff
+};
+
+struct settings_t settings;
+
 extern void Delay(volatile int i) {
     for (; i != 0; i--);
 }
@@ -120,6 +152,10 @@ int current_zoom = 2;
 #define MAX_BRIGHTNESS 23
 
 uint8_t brightness = MAX_BRIGHTNESS;
+
+static void load_settings(void);
+static void init_settings(void);
+static void save_settings(void);
 
 const char input_map[4] = {
     [0] /* 00 */ = 0,
@@ -576,6 +612,34 @@ void EXTI4_15_IRQHandler(void)
         /* Clear the EXTI line 8 pending bit */
         EXTI_ClearITPendingBit(EXTI_Line8);
     }
+}
+
+static void init_settings(void) {
+    int i;
+    for (i = 0; i < 4; i++) {
+        int j;
+        for (j = 0; j < 3; j++) {
+            settings.users[i].coords[j].x = CROSS_X_DEFAULT;
+            settings.users[i].coords[j].y = CROSS_Y_DEFAULT;
+        }
+        settings.users[i].brightness = MAX_BRIGHTNESS;
+        settings.users[i].cross_type = cross_type_min;
+    }
+
+    settings.seqno = 0;
+    settings.invalid = 0;
+}
+
+static void load_settings(void) {
+    if (settings0.invalid == 0) {
+        memcpy(&settings, &settings0, sizeof(struct settings_t));
+    } else {
+        init_settings();
+    }
+}
+
+static void save_settings(void) {
+    //
 }
 
 int main(void)

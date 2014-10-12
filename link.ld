@@ -35,7 +35,17 @@ SECTIONS
 		
 		KEEP(*(.eh_fram e*))
 	} > rom 
-	
+
+    .flash.page30 0x08007800:
+    {
+        KEEP(*(.flash.page30))
+    } > rom
+
+    .flash.page31 0x08007c00:
+    {
+        KEEP(*(.flash.page31))
+    } > rom
+
 	.ARM.extab : 
 	{
 		*(.ARM.extab* .gnu.linkonce.armextab.*)
