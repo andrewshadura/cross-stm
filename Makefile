@@ -66,7 +66,7 @@ XBMFLAGS=-Dstatic= -Dunsigned=const -x c
 	name="$$(sed -n '/define.*width/{s/_width.*//g;s/.* //g;p}' $<)"; echo "extern const char $${name}_bits[][$${name}_width / 8];" >> $@
 
 cross-%.c: cross-%.xbm
-	name="$$(sed -n '/define.*width/{s/_width.*//g;s/.* //g;p}' $<)"; echo $$name; xbmtopbm $< | ./sortpnm.tcl $$name > $@
+	name="$$(sed -n '/define.*width/{s/_width.*//g;s/.* //g;p}' $<)"; xbmtopbm $< | ./sortpnm.tcl $$name > $@
 
 cross-%.h: cross-%.c
 	head -n2 < ${<:.c=.xbm} > $@
@@ -76,7 +76,7 @@ program: $(PROG).hex
 	stm32flash -w $< /dev/ttyUSB0
 
 export: $(PROG).hex
-	cp $< /tmp/test-$(X)-$$(date +\%H.\%M.\%S).hex
+	cp $< /tmp/test-$(X)-$$(date +\%F.\%H.\%M.\%S).hex
 
 clean:
 	rm -f $(SRC:.c=.o) $(patsubst %.s,%.o,$(LIB:.c=.o)) $(patsubst %.xbm,%.o,$(wildcard *.xbm))
