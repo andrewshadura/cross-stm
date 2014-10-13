@@ -1,6 +1,7 @@
 #include "stm32f0xx_adc.h"
 #include "stm32f0xx_dac.h"
 #include "stm32f0xx_exti.h"
+#include "stm32f0xx_flash.h"
 #include "stm32f0xx_gpio.h"
 #include "stm32f0xx_misc.h"
 #include "stm32f0xx_syscfg.h"
@@ -9,6 +10,7 @@
 
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "galaxians.h"
 #include "statusbar.h"
@@ -66,7 +68,7 @@ unsigned char gauge_ram_bits[12];
 #define CROSS_CENTRE cross_y
 
 #define CROSS_Y_DEFAULT 162
-#define CROSS_X_DEFAULT 205
+#define CROSS_X_DEFAULT 173
 
 #define CROSS_X_RANGE 85
 #define CROSS_Y_RANGE 85
@@ -128,6 +130,8 @@ bool show_gauge = false;
 
 bool autorepeat = false;
 
+bool reload_settings = true;
+
 int gauge_value = 0;
 
 int menu = 0;
@@ -156,6 +160,7 @@ uint8_t brightness = MAX_BRIGHTNESS;
 static void load_settings(void);
 static void init_settings(void);
 static void save_settings(void);
+static void update_brightness(int value);
 
 const char input_map[4] = {
     [0] /* 00 */ = 0,
@@ -164,10 +169,13 @@ const char input_map[4] = {
     [2] /* 10 */ = 3
 };
 
-static void update_status(void) {
+void update_status(void) {
     int i;
     uint8_t input = ((GPIOA->IDR & (GPIO_Pin_2 | GPIO_Pin_1)) >> 1);
-    current_input = input_map[input];
+    if (input_map[input] != current_input) {
+        current_input = input_map[input];
+        reload_settings = true;
+    }
 
     statusbar_ram_bits[0] = current_input;
     for (i = 1; i <= 17; i++) {
@@ -190,6 +198,16 @@ static void update_status(void) {
 
     for (i = 18; i < (statusbar_width / 8); i++) {
         statusbar_ram_bits[i] = i;
+    }
+
+    if (reload_settings) {
+        cross_type = settings.users[current_input].cross_type;
+        brightness = settings.users[current_input].brightness;
+        update_brightness(brightness);
+        cross_x = settings.users[current_input].coords[current_zoom].x;
+        cross_y = settings.users[current_input].coords[current_zoom].y;
+
+        reload_settings = false;
     }
 }
 
@@ -222,7 +240,6 @@ static void switch_zoom(int button);
 static void set_brightness(int button);
 static void change_brightness(int button);
 static void finish_brightness(int button);
-static void update_brightness(int value);
 static void set_move_cross(int button);
 static void cross_xy(int button);
 static void finish_move(int button);
@@ -321,6 +338,8 @@ static void switch_cross(int button) {
             break;
         case 2:
             menu--;
+            settings.users[current_input].cross_type = cross_type;
+            save_settings();
             show_cross = false;
             break;
     }
@@ -332,6 +351,7 @@ static void switch_zoom(int button) {
     } else {
         current_zoom++;
     }
+    reload_settings = true;
 }
 
 static void set_brightness(int button) {
@@ -364,6 +384,8 @@ static void finish_brightness(int button) {
     menu--;
     show_gauge = false;
     brightness = gauge_value;
+    settings.users[current_input].brightness = brightness;
+    save_settings();
 }
 
 static void set_move_cross(int button) {
@@ -398,6 +420,10 @@ static void cross_xy(int button) {
 }
 
 static void finish_move(int button) {
+    settings.users[current_input].coords[current_zoom].x = cross_x;
+    settings.users[current_input].coords[current_zoom].y = cross_y;
+    save_settings();
+    show_cross = false;
     menu--;
 }
 
@@ -447,16 +473,7 @@ static void buttons(void)
     }
 }
 
-void EXTI4_15_IRQHandler(void)
-{
-    if(EXTI_GetITStatus(EXTI_Line8) != RESET)
-    {
-        if (GPIOB->IDR & GPIO_Pin_7) {
-            if (row < 400) {
-                row++;
-            }
-
-            if (row == (STATUSBAR_START - 2)) {
+void control(void) {
                 if (button != button_none) {
                     /*
                     if ((*current_menu)[current_item][button]) {
@@ -492,6 +509,20 @@ void EXTI4_15_IRQHandler(void)
                 if (show_gauge) {
                     update_gauge();
                 }
+
+}
+
+void EXTI4_15_IRQHandler(void)
+{
+    if(EXTI_GetITStatus(EXTI_Line8) != RESET)
+    {
+        if (GPIOB->IDR & GPIO_Pin_7) {
+            if (row < 400) {
+                row++;
+            }
+
+            if (row == 5) {
+                control();
             } else if ((row > STATUSBAR_START) && (row < (STATUSBAR_START + 16))) {
                 Delay(100);
 
@@ -639,7 +670,14 @@ static void load_settings(void) {
 }
 
 static void save_settings(void) {
-    //
+    FLASH_Unlock();
+    FLASH_ErasePage((uint32_t)&settings0);
+    int i, words = (sizeof(settings) + 3) / 4;
+
+    for (i = 0; i < words; i++) {
+        FLASH_ProgramWord(((uint32_t)&(((uint32_t *)&settings0)[i])),
+                          (((uint32_t *)&settings)[i]));
+    }
 }
 
 int main(void)
@@ -764,6 +802,8 @@ int main(void)
     while(!ADC_GetFlagStatus(ADC1, ADC_FLAG_ADRDY));
     ADC_WaitModeCmd(ADC1, ENABLE);
     ADC_StartOfConversion(ADC1);
+
+    load_settings();
 
     update_status();
 
