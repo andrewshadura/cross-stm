@@ -7,6 +7,7 @@
 #include "stm32f0xx_syscfg.h"
 #include "stm32f0xx_rcc.h"
 #include "stm32f0xx_spi.h"
+#include "stm32f0xx_tim.h"
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -45,12 +46,12 @@ struct settings_t {
     uint32_t invalid;
 };
 
-struct settings_t __attribute__((section (".flash.page30"))) settings0 = {
+struct settings_t __attribute__((section (".flash.page30"))) settings0;/* = {
     .invalid = 0xffffffff
-};
-struct settings_t __attribute__((section (".flash.page31"))) settings1 = {
+};*/
+struct settings_t __attribute__((section (".flash.page31"))) settings1;/* = {
     .invalid = 0xffffffff
-};
+};*/
 
 struct settings_t settings;
 
@@ -61,6 +62,7 @@ extern void Delay(volatile int i) {
 uint16_t row = 0;
 
 #define CHARGEN_PROGRESS 8
+#define CHARGEN_NUMBERS 11
 
 unsigned char statusbar_ram_bits[statusbar_width / 8];
 unsigned char gauge_ram_bits[12];
@@ -180,7 +182,7 @@ void update_status(void) {
     }
 
     statusbar_ram_bits[0] = current_input;
-    for (i = 1; i <= 17; i++) {
+    for (i = 1; i <= 20; i++) {
         statusbar_ram_bits[i] = 0;
     }
     switch (current_zoom) {
@@ -198,7 +200,7 @@ void update_status(void) {
             break;
     }
 
-    for (i = 18; i < (statusbar_width / 8); i++) {
+    for (i = 21; i < (statusbar_width / 8); i++) {
         statusbar_ram_bits[i] = i;
     }
 
@@ -518,6 +520,8 @@ void EXTI4_15_IRQHandler(void)
 {
     if(EXTI_GetITStatus(EXTI_Line8) != RESET)
     {
+        uint16_t pulse_width = TIM6->CNT;
+        TIM6->CNT = 0;
         if (GPIOB->IDR & GPIO_Pin_7) {
             if (row < 400) {
                 row++;
@@ -525,6 +529,16 @@ void EXTI4_15_IRQHandler(void)
 
             if (row == 5) {
                 control();
+            } else if (row == 20) {
+                statusbar_ram_bits[7] = CHARGEN_NUMBERS + pulse_width % 10;
+                pulse_width /= 10;
+                statusbar_ram_bits[6] = CHARGEN_NUMBERS + pulse_width % 10;
+                pulse_width /= 10;
+                statusbar_ram_bits[5] = CHARGEN_NUMBERS + pulse_width % 10;
+                pulse_width /= 10;
+                statusbar_ram_bits[4] = CHARGEN_NUMBERS + pulse_width % 10;
+                pulse_width /= 10;
+                statusbar_ram_bits[3] = CHARGEN_NUMBERS + pulse_width % 10;
             } else if ((row > STATUSBAR_START) && (row < (STATUSBAR_START + 16))) {
                 Delay(LEFT_OFFSET + 100);
 
@@ -560,7 +574,7 @@ void EXTI4_15_IRQHandler(void)
                         SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[i]]));
                         while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
                     }
-}
+                }
                 static bool batteryblink = true;
                 static int count = 0;
                 if (++count == 350) {
@@ -660,11 +674,11 @@ static void init_settings(void) {
     }
 
     settings.seqno = 0;
-    settings.invalid = 0;
+    settings.invalid = 0x12345678;
 }
 
 static void load_settings(void) {
-    if (settings0.invalid == 0) {
+    if (settings0.invalid == 0x12345678) {
         memcpy(&settings, &settings0, sizeof(struct settings_t));
     } else {
         init_settings();
@@ -690,6 +704,7 @@ int main(void)
     SPI_InitTypeDef SPI_InitStructure;
     ADC_InitTypeDef ADC_InitStructure;
     DAC_InitTypeDef DAC_InitStructure;
+    TIM_TimeBaseInitTypeDef TIM_InitStructure;
 
     /* Enable the GPIO_LED Clock */
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB, ENABLE);
@@ -804,6 +819,19 @@ int main(void)
     while(!ADC_GetFlagStatus(ADC1, ADC_FLAG_ADRDY));
     ADC_WaitModeCmd(ADC1, ENABLE);
     ADC_StartOfConversion(ADC1);
+
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM6, ENABLE);
+
+    TIM_InitStructure.TIM_Prescaler = 0;
+    TIM_InitStructure.TIM_CounterMode = TIM_CounterMode_Up;
+    TIM_InitStructure.TIM_Period = 0xffff;
+    TIM_InitStructure.TIM_ClockDivision = TIM_CKD_DIV1;
+
+    TIM_TimeBaseInit(TIM6, &TIM_InitStructure);
+
+    //TIM_PrescalerConfig(TIM6, 0, TIM_PSCReloadMode_Immediate);
+
+    TIM_Cmd(TIM6, ENABLE);
 
     load_settings();
 
