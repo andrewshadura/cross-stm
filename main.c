@@ -20,6 +20,8 @@
 #include "cross-tdot-mini.h"
 #include "cross-milt.h"
 
+#define LEFT_OFFSET -50
+
 struct coords_t {
     uint16_t x;
     uint16_t y;
@@ -68,7 +70,7 @@ unsigned char gauge_ram_bits[12];
 #define CROSS_CENTRE cross_y
 
 #define CROSS_Y_DEFAULT 162
-#define CROSS_X_DEFAULT 173
+#define CROSS_X_DEFAULT (LEFT_OFFSET + 173)
 
 #define CROSS_X_RANGE 85
 #define CROSS_Y_RANGE 85
@@ -524,7 +526,7 @@ void EXTI4_15_IRQHandler(void)
             if (row == 5) {
                 control();
             } else if ((row > STATUSBAR_START) && (row < (STATUSBAR_START + 16))) {
-                Delay(100);
+                Delay(LEFT_OFFSET + 100);
 
                 int i;
                 int status_row = row - STATUSBAR_START;
@@ -575,7 +577,7 @@ void EXTI4_15_IRQHandler(void)
                 }
                 SPI_SendData8(SPI1, 0xff);
             } else if ((menu == 1) && ((row > MAINWIN_START) && (row < (MAINWIN_START + menu_height - 1)))) {
-                Delay(160);
+                Delay(LEFT_OFFSET + 160);
 
                 int i;
                 const char * ptr;
@@ -623,7 +625,7 @@ void EXTI4_15_IRQHandler(void)
                 SPI_SendData8(SPI1, 0xff);
 
             } else if ((show_gauge) && ((row > MAINWIN_START) && (row < (MAINWIN_START + 15)))) {
-                Delay(160);
+                Delay(LEFT_OFFSET + 160);
 
                 int i;
                 const char * ptr = &statusbar_bits[row - MAINWIN_START][0];
@@ -744,7 +746,7 @@ int main(void)
     /* Configure EXTI7 line */
     EXTI_InitStructure.EXTI_Line = EXTI_Line8;
     EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
-    EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
+    EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
     EXTI_InitStructure.EXTI_LineCmd = ENABLE;
     EXTI_Init(&EXTI_InitStructure);
 
