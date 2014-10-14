@@ -135,6 +135,7 @@ bool show_gauge = false;
 bool autorepeat = false;
 
 bool reload_settings = true;
+volatile bool save_settings_request = false;
 
 int gauge_value = 0;
 
@@ -343,7 +344,7 @@ static void switch_cross(int button) {
         case 2:
             menu--;
             settings.users[current_input].cross_type = cross_type;
-            save_settings();
+            save_settings_request = true;
             show_cross = false;
             break;
     }
@@ -389,7 +390,7 @@ static void finish_brightness(int button) {
     show_gauge = false;
     brightness = gauge_value;
     settings.users[current_input].brightness = brightness;
-    save_settings();
+    save_settings_request = true;
 }
 
 static void set_move_cross(int button) {
@@ -426,7 +427,7 @@ static void cross_xy(int button) {
 static void finish_move(int button) {
     settings.users[current_input].coords[current_zoom].x = cross_x;
     settings.users[current_input].coords[current_zoom].y = cross_y;
-    save_settings();
+    save_settings_request = true;
     show_cross = false;
     menu--;
 }
@@ -860,8 +861,29 @@ int main(void)
 
     update_brightness(brightness);
 
+    bool saving = false;
+
     while(1)
     {
+        if (save_settings_request) {
+            static int i, words;
+            if (!saving) {
+                FLASH_Unlock();
+                FLASH_ErasePage((uint32_t)&settings0);
+                i = 0;
+                words = (sizeof(settings) + 3) / 4;
+                saving = true;
+            } else {
+                if (i < words) {
+                    FLASH_ProgramWord(((uint32_t)&(((uint32_t *)&settings0)[i])),
+                                      (((uint32_t *)&settings)[i]));
+                    i++;
+                } else {
+                    saving = false;
+                    save_settings_request = false;
+                }
+            }
+        }
     }
 }
 
