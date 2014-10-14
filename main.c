@@ -516,13 +516,40 @@ void control(void) {
 
 }
 
+uint8_t pulses = 0;
+
+void VSYNC(void);
+
+uint16_t pulse_width;
+
+bool found = false;
+
 void EXTI4_15_IRQHandler(void)
 {
     if(EXTI_GetITStatus(EXTI_Line8) != RESET)
     {
-        uint16_t pulse_width = TIM6->CNT;
+        pulse_width = TIM6->CNT;
         TIM6->CNT = 0;
-        if (GPIOB->IDR & GPIO_Pin_7) {
+        if ((pulse_width < 3000) && (row > 255)) {
+            pulses++;
+            if (pulses == 3) {
+                found = true;
+            }
+        } else {
+            if (found) {
+                row = 3;
+                found = false;
+            }
+            pulses = 0;
+            VSYNC();
+        }
+
+        /* Clear the EXTI line 8 pending bit */
+        EXTI_ClearITPendingBit(EXTI_Line8);
+    }
+}
+
+void VSYNC(void) {
             if (row < 400) {
                 row++;
             }
@@ -530,15 +557,16 @@ void EXTI4_15_IRQHandler(void)
             if (row == 5) {
                 control();
             } else if (row == 20) {
-                statusbar_ram_bits[7] = CHARGEN_NUMBERS + pulse_width % 10;
-                pulse_width /= 10;
-                statusbar_ram_bits[6] = CHARGEN_NUMBERS + pulse_width % 10;
-                pulse_width /= 10;
-                statusbar_ram_bits[5] = CHARGEN_NUMBERS + pulse_width % 10;
-                pulse_width /= 10;
-                statusbar_ram_bits[4] = CHARGEN_NUMBERS + pulse_width % 10;
-                pulse_width /= 10;
-                statusbar_ram_bits[3] = CHARGEN_NUMBERS + pulse_width % 10;
+                uint16_t p_w = pulse_width;
+                statusbar_ram_bits[7] = CHARGEN_NUMBERS + p_w % 10;
+                p_w /= 10;
+                statusbar_ram_bits[6] = CHARGEN_NUMBERS + p_w % 10;
+                p_w /= 10;
+                statusbar_ram_bits[5] = CHARGEN_NUMBERS + p_w % 10;
+                p_w /= 10;
+                statusbar_ram_bits[4] = CHARGEN_NUMBERS + p_w % 10;
+                p_w /= 10;
+                statusbar_ram_bits[3] = CHARGEN_NUMBERS + p_w % 10;
             } else if ((row > STATUSBAR_START) && (row < (STATUSBAR_START + 16))) {
                 Delay(LEFT_OFFSET + 100);
 
@@ -652,13 +680,6 @@ void EXTI4_15_IRQHandler(void)
                 }
                 SPI_SendData8(SPI1, 0xff);
             }
-        } else {
-            row = 0;
-        }
-
-        /* Clear the EXTI line 8 pending bit */
-        EXTI_ClearITPendingBit(EXTI_Line8);
-    }
 }
 
 static void init_settings(void) {
