@@ -558,6 +558,7 @@ void VSYNC(void) {
             if (row == 5) {
                 control();
             } else if (row == 20) {
+                /*
                 uint16_t p_w = pulse_width;
                 statusbar_ram_bits[7] = CHARGEN_NUMBERS + p_w % 10;
                 p_w /= 10;
@@ -568,6 +569,7 @@ void VSYNC(void) {
                 statusbar_ram_bits[4] = CHARGEN_NUMBERS + p_w % 10;
                 p_w /= 10;
                 statusbar_ram_bits[3] = CHARGEN_NUMBERS + p_w % 10;
+                */
             } else if ((row > STATUSBAR_START) && (row < (STATUSBAR_START + 16))) {
                 Delay(LEFT_OFFSET + 100);
 
@@ -681,6 +683,12 @@ void VSYNC(void) {
                 }
                 SPI_SendData8(SPI1, 0xff);
             }
+
+            if (save_settings_request) {
+                if (row > (MAINWIN_START + menu_height)) {
+                    save_settings();
+                }
+            }
 }
 
 static void init_settings(void) {
@@ -708,6 +716,7 @@ static void load_settings(void) {
 }
 
 static void save_settings(void) {
+#if 0
     FLASH_Unlock();
     FLASH_ErasePage((uint32_t)&settings0);
     int i, words = (sizeof(settings) + 3) / 4;
@@ -715,6 +724,28 @@ static void save_settings(void) {
     for (i = 0; i < words; i++) {
         FLASH_ProgramWord(((uint32_t)&(((uint32_t *)&settings0)[i])),
                           (((uint32_t *)&settings)[i]));
+    }
+#endif
+    static bool saving = false;
+
+    {
+        static int i, words;
+        if (!saving) {
+            FLASH_Unlock();
+            FLASH_ErasePage((uint32_t)&settings0);
+            i = 0;
+            words = (sizeof(settings) + 3) / 4;
+            saving = true;
+        } else {
+            if (i < words) {
+                FLASH_ProgramWord(((uint32_t)&(((uint32_t *)&settings0)[i])),
+                                  (((uint32_t *)&settings)[i]));
+                i++;
+            } else {
+                saving = false;
+                save_settings_request = false;
+            }
+        }
     }
 }
 
@@ -861,29 +892,8 @@ int main(void)
 
     update_brightness(brightness);
 
-    bool saving = false;
-
     while(1)
     {
-        if (save_settings_request) {
-            static int i, words;
-            if (!saving) {
-                FLASH_Unlock();
-                FLASH_ErasePage((uint32_t)&settings0);
-                i = 0;
-                words = (sizeof(settings) + 3) / 4;
-                saving = true;
-            } else {
-                if (i < words) {
-                    FLASH_ProgramWord(((uint32_t)&(((uint32_t *)&settings0)[i])),
-                                      (((uint32_t *)&settings)[i]));
-                    i++;
-                } else {
-                    saving = false;
-                    save_settings_request = false;
-                }
-            }
-        }
     }
 }
 
