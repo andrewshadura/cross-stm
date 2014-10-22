@@ -80,3 +80,5 @@ export: $(PROG).hex
 
 clean:
 	rm -f $(SRC:.c=.o) $(patsubst %.s,%.o,$(LIB:.c=.o)) $(patsubst %.xbm,%.o,$(wildcard *.xbm))
+
+.PHONY: cmsis_boot/system_stm32f0xx_temp.c
