@@ -8,8 +8,10 @@
 #include "stm32f0xx_rcc.h"
 #include "stm32f0xx_spi.h"
 #include "stm32f0xx_tim.h"
+#include "stm32f0xx_usart.h"
 
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -758,6 +760,7 @@ int main(void)
     ADC_InitTypeDef ADC_InitStructure;
     DAC_InitTypeDef DAC_InitStructure;
     TIM_TimeBaseInitTypeDef TIM_InitStructure;
+    USART_InitTypeDef USART_InitStructure;
 
     /* Enable the GPIO_LED Clock */
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB, ENABLE);
@@ -886,6 +889,79 @@ int main(void)
 
     TIM_Cmd(TIM6, ENABLE);
 
+    /* USARTx configured as follow:
+    - BaudRate = 115200 baud  
+    - Word Length = 8 Bits
+    - One Stop Bit
+    - No parity
+    - Hardware flow control disabled (RTS and CTS signals)
+    - Receive and transmit enabled
+    */
+    USART_InitStructure.USART_BaudRate = 115200;
+    USART_InitStructure.USART_WordLength = USART_WordLength_8b;
+    USART_InitStructure.USART_StopBits = USART_StopBits_1;
+    USART_InitStructure.USART_Parity = USART_Parity_No;
+    USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
+    USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
+
+    USART_DeInit(USART1);
+    USART_DeInit(USART2);
+    /* Enable USART clock */
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
+
+    /* Connect PXx to USARTx_Tx */
+    GPIO_PinAFConfig(GPIOA, GPIO_PinSource14, GPIO_AF_1);
+
+    /* Connect PXx to USARTx_Rx */
+    GPIO_PinAFConfig(GPIOA, GPIO_PinSource15, GPIO_AF_1);
+
+    /* Configure USART Tx, Rx as alternate function push-pull */
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_14 | GPIO_Pin_15;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+    /* USART configuration */
+    USART_Init(USART2, &USART_InitStructure);
+
+    /* Enable USART */
+    USART_Cmd(USART2, ENABLE);
+
+    USART_InitStructure.USART_BaudRate = 115200;
+    USART_InitStructure.USART_WordLength = USART_WordLength_8b;
+    USART_InitStructure.USART_StopBits = USART_StopBits_1;
+    USART_InitStructure.USART_Parity = USART_Parity_No;
+    USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
+    USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
+
+    /* Enable GPIO clock */
+    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
+
+    /* Enable USART clock */
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);
+    
+    /* Connect PXx to USARTx_Tx */
+    GPIO_PinAFConfig(GPIOA, GPIO_PinSource9, GPIO_AF_1);
+
+    /* Connect PXx to USARTx_Rx */
+    GPIO_PinAFConfig(GPIOA, GPIO_PinSource10, GPIO_AF_1);
+    
+    /* Configure USART Tx, Rx as alternate function push-pull */
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9 | GPIO_Pin_10;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+    /* USART configuration */
+    USART_Init(USART1, &USART_InitStructure);
+
+    /* Enable USART */
+    USART_Cmd(USART1, ENABLE);
+
     load_settings();
 
     update_status();
@@ -894,6 +970,10 @@ int main(void)
 
     while(1)
     {
+        /*
+        USART_SendData(USART1, 0xa7);
+        USART_SendData(USART2, 0xa7);
+        */
     }
 }
 
