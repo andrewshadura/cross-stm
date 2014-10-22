@@ -521,7 +521,7 @@ void control(void) {
 
 uint8_t pulses = 0;
 
-void VSYNC(void);
+void HSYNC(void);
 
 uint16_t pulse_width;
 
@@ -544,7 +544,7 @@ void EXTI4_15_IRQHandler(void)
                 found = false;
             }
             pulses = 0;
-            VSYNC();
+            HSYNC();
         }
 
         /* Clear the EXTI line 8 pending bit */
@@ -552,7 +552,7 @@ void EXTI4_15_IRQHandler(void)
     }
 }
 
-void VSYNC(void) {
+void HSYNC(void) {
             if (row < 400) {
                 row++;
             }
