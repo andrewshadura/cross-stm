@@ -150,7 +150,8 @@ bool inverted = false;
 #define HCOUNT_REPEAT 25
 #define HCOUNT_LONG   35
 
-typedef void (*fn_t)(int button);
+typedef void (*fn_t)(void);
+typedef void (*fn1_t)(int button);
 
 int current_item = 0;
 
@@ -234,7 +235,7 @@ static void update_gauge(void) {
     }
 }
 
-typedef const fn_t menu_t[][button_count];
+typedef const fn1_t menu_t[][button_count];
 
 static void next(int button);
 static void prev(int button);
@@ -487,7 +488,7 @@ void control(void) {
                         (*current_menu)[current_item][button]();
                     }
                     */
-                    fn_t callback;
+                    fn1_t callback;
                     switch (menu) {
                         case 0:
                             callback = off_menu[0][button];
@@ -527,6 +528,23 @@ uint16_t pulse_width;
 
 bool found = false;
 
+void draw_nothing(void);
+void draw_status(void);
+void draw_menu(void);
+void draw_cross(void);
+void draw_gauge(void);
+
+fn_t current_fn = draw_nothing;
+
+enum state_t {
+    state_status = 0,
+    state_main,
+    state_bottom
+};
+
+enum state_t state = state_status;
+
+
 void EXTI4_15_IRQHandler(void)
 {
     if(EXTI_GetITStatus(EXTI_Line8) != RESET)
@@ -537,6 +555,8 @@ void EXTI4_15_IRQHandler(void)
             pulses++;
             if (pulses == 3) {
                 found = true;
+                current_fn = draw_nothing;
+                state = state_status;
             }
         } else {
             if (found) {
@@ -552,27 +572,44 @@ void EXTI4_15_IRQHandler(void)
     }
 }
 
-void HSYNC(void) {
-            if (row < 400) {
-                row++;
+void draw_nothing(void) {
+    if (row == 5) {
+        control();
+    }
+    switch (state) {
+        case state_status:
+            if (row >= STATUSBAR_START) {
+                state = state_main;
+                current_fn = draw_status;
+                return;
             }
+            break;
+        case state_main:
+            if (row >= MAINWIN_START) {
+                if (menu == 1) {
+                    current_fn = draw_menu;
+                    state = state_bottom;
+                    return;
+                } else if (show_gauge) {
+                    current_fn = draw_gauge;
+                    state = state_bottom;
+                    return;
+                }
+            }
+            if (row >= (CROSS_CENTRE - cross_height[cross_type] / 2)) {
+                if (show_cross) {
+                    current_fn = draw_cross;
+                    state = state_bottom;
+                    return;
+                }
+            }
+            break;
+        case state_bottom:
+            break;
+    }
+}
 
-            if (row == 5) {
-                control();
-            } else if (row == 20) {
-                /*
-                uint16_t p_w = pulse_width;
-                statusbar_ram_bits[7] = CHARGEN_NUMBERS + p_w % 10;
-                p_w /= 10;
-                statusbar_ram_bits[6] = CHARGEN_NUMBERS + p_w % 10;
-                p_w /= 10;
-                statusbar_ram_bits[5] = CHARGEN_NUMBERS + p_w % 10;
-                p_w /= 10;
-                statusbar_ram_bits[4] = CHARGEN_NUMBERS + p_w % 10;
-                p_w /= 10;
-                statusbar_ram_bits[3] = CHARGEN_NUMBERS + p_w % 10;
-                */
-            } else if ((row > STATUSBAR_START) && (row < (STATUSBAR_START + 16))) {
+void draw_status(void) {
                 Delay(LEFT_OFFSET + 100);
 
                 int i;
@@ -623,7 +660,13 @@ void HSYNC(void) {
                     SPI_SendData8(SPI1, 0xff);
                 }
                 SPI_SendData8(SPI1, 0xff);
-            } else if ((menu == 1) && ((row > MAINWIN_START) && (row < (MAINWIN_START + menu_height - 1)))) {
+
+    if (row == (STATUSBAR_START + 16)) {
+        current_fn = draw_nothing;
+    }
+}
+
+void draw_menu(void) {
                 Delay(LEFT_OFFSET + 160);
 
                 int i;
@@ -646,7 +689,13 @@ void HSYNC(void) {
                     while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
                 }
                 SPI_SendData8(SPI1, 0xff);
-            } else if ((show_cross) && ((row > (CROSS_CENTRE - cross_height[cross_type] / 2)) && (row < (CROSS_CENTRE + cross_height[cross_type] / 2 - 1)))) {
+
+    if (row >= (MAINWIN_START + menu_height - 1)) {
+        current_fn = draw_nothing;
+    }
+}
+
+void draw_cross(void) {
                 uint16_t CROSS_START = CROSS_CENTRE - cross_height[cross_type] / 2;
                 Delay(cross_x);
 
@@ -671,7 +720,12 @@ void HSYNC(void) {
                 }
                 SPI_SendData8(SPI1, 0xff);
 
-            } else if ((show_gauge) && ((row > MAINWIN_START) && (row < (MAINWIN_START + 15)))) {
+    if (row >= (CROSS_CENTRE + cross_height[cross_type] / 2 - 1)) {
+        current_fn = draw_nothing;
+    }
+}
+
+void draw_gauge(void) {
                 Delay(LEFT_OFFSET + 160);
 
                 int i;
@@ -684,13 +738,40 @@ void HSYNC(void) {
                     if (i > 1) while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
                 }
                 SPI_SendData8(SPI1, 0xff);
+
+    if (row >= (MAINWIN_START + 15)) {
+        current_fn = draw_nothing;
+    }
+}
+
+void HSYNC(void) {
+            if (row < 400) {
+                row++;
             }
 
+            current_fn();
+
+#if 0
+            if (row == 5) {
+                control();
+            } else if ((row > STATUSBAR_START) && (row < (STATUSBAR_START + 16))) {
+                current_fn = draw_status;
+            } else if ((menu == 1) && ((row > MAINWIN_START) && (row < (MAINWIN_START + menu_height - 1)))) {
+                current_fn = draw_menu;
+            } else if ((show_cross) && ((row > (CROSS_CENTRE - cross_height[cross_type] / 2)) && (row < (CROSS_CENTRE + cross_height[cross_type] / 2 - 1)))) {
+                current_fn = draw_cross;
+            } else if ((show_gauge) && ((row > MAINWIN_START) && (row < (MAINWIN_START + 15)))) {
+                current_fn = draw_gauge;
+            }
+#endif
+
+#if 0
             if (save_settings_request) {
                 if (row > (MAINWIN_START + menu_height)) {
                     save_settings();
                 }
             }
+#endif
 }
 
 static void init_settings(void) {
@@ -967,6 +1048,8 @@ int main(void)
     update_status();
 
     update_brightness(brightness);
+
+    current_fn = draw_nothing;
 
     while(1)
     {
