@@ -606,6 +606,9 @@ void draw_nothing(void) {
             }
             break;
         case state_bottom:
+            if (save_settings_request && (menu == 0)) {
+                save_settings();
+            }
             break;
     }
 }
