@@ -5,6 +5,7 @@
 #include "stm32f0xx_gpio.h"
 #include "stm32f0xx_misc.h"
 #include "stm32f0xx_syscfg.h"
+#include "stm32f0xx_pwr.h"
 #include "stm32f0xx_rcc.h"
 #include "stm32f0xx_spi.h"
 #include "stm32f0xx_tim.h"
@@ -1053,6 +1054,7 @@ int main(void)
 
     while(1)
     {
+        PWR_EnterSleepMode(PWR_SLEEPEntry_WFE);
         /*
         USART_SendData(USART1, 0xa7);
         USART_SendData(USART2, 0xa7);
