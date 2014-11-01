@@ -1,5 +1,6 @@
 #include "stm32f0xx_adc.h"
 #include "stm32f0xx_dac.h"
+#include "stm32f0xx_dma.h"
 #include "stm32f0xx_exti.h"
 #include "stm32f0xx_flash.h"
 #include "stm32f0xx_gpio.h"
@@ -37,6 +38,8 @@ struct setting_t {
     uint8_t cross_type;
 };
 
+volatile uint16_t adc_buffer[3] = {4095, 4095, 4095};
+
 struct settings_t {
     /*
         for each user:
@@ -64,6 +67,8 @@ extern void Delay(volatile int i) {
 
 uint16_t row = 0;
 
+uint16_t adccal = 0;
+
 #define CHARGEN_PROGRESS 8
 #define CHARGEN_NUMBERS 11
 
@@ -85,7 +90,11 @@ uint16_t cross_x = CROSS_X_DEFAULT;
 
 uint16_t start_inv = MAINWIN_START + 3, end_inv = MAINWIN_START + 14;
 
-bool battery_low = true;
+int battery_low = 0;
+
+#define BATTERY_LOW_LEVEL 108
+
+volatile uint16_t battery_level = 0;
 
 #if 0
 static void set_out(char i) {
@@ -131,6 +140,8 @@ const unsigned char cross_height[] = {
 int button = button_none;
 
 int cross_type = cross_type_big;
+
+bool batteryblink = true;
 
 bool show_cross = true;
 bool show_gauge = false;
@@ -441,19 +452,30 @@ static void finish_move(int button) {
 
 uint8_t codes[] = {button_menu, button_up, button_down, button_right, button_left, 0};
 
-volatile uint16_t adcval;
+volatile uint16_t buttons_level;
 volatile uint16_t DACVal = 0x057f;
 
 uint8_t debounced_code = 0;
 
 volatile int8_t hcount = 0;
 
+volatile bool ad_done = false;
+
+void ADC1_COMP_IRQHandler(void)
+{
+    if(ADC_GetITStatus(ADC1,ADC_IT_EOSEQ) == SET){
+        ADC_ClearITPendingBit(ADC1,ADC_IT_EOSEQ);
+        ad_done = true;
+    }
+}
+
 static void buttons(void)
 {
-    adcval = ADC_GetConversionValue(ADC1);
-    ADC_StartOfConversion(ADC1);
+    if (!ad_done) return;
+    ad_done = false;
+    buttons_level = adc_buffer[0];
 
-    uint16_t temp = adcval / 4;
+    uint16_t temp = buttons_level / 4;
     temp += (STEPWIDTH/2);
     temp /= STEPWIDTH;
     debounced_code = codes[temp];
@@ -558,6 +580,7 @@ void EXTI4_15_IRQHandler(void)
                 found = true;
                 current_fn = draw_nothing;
                 state = state_status;
+                ADC_StartOfConversion(ADC1);
             }
         } else {
             if (found) {
@@ -576,6 +599,18 @@ void EXTI4_15_IRQHandler(void)
 void draw_nothing(void) {
     if (row == 5) {
         control();
+        /*
+        uint16_t p_w = battery_level;
+        statusbar_ram_bits[7] = CHARGEN_NUMBERS + p_w % 10;
+        p_w /= 10;
+        statusbar_ram_bits[6] = CHARGEN_NUMBERS + p_w % 10;
+        p_w /= 10;
+        statusbar_ram_bits[5] = CHARGEN_NUMBERS + p_w % 10;
+        p_w /= 10;
+        statusbar_ram_bits[4] = CHARGEN_NUMBERS + p_w % 10;
+        p_w /= 10;
+        statusbar_ram_bits[3] = CHARGEN_NUMBERS + p_w % 10;
+        */
     }
     switch (state) {
         case state_status:
@@ -608,6 +643,9 @@ void draw_nothing(void) {
         case state_bottom:
             if (save_settings_request && (menu == 0)) {
                 save_settings();
+            } else {
+                uint16_t vrefint = *((__IO uint16_t*) 0x1ffff7ba);
+                battery_level = (330L * vrefint / 4096 * adc_buffer[1] / adc_buffer[2]);
             }
             break;
     }
@@ -649,14 +687,18 @@ void draw_status(void) {
                         while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
                     }
                 }
-                static bool batteryblink = true;
                 static int count = 0;
                 if (++count == 350) {
                     count = 0;
                     batteryblink = !batteryblink;
                     //button = button_down;
+                    if ((battery_low < 80) && (battery_level <= BATTERY_LOW_LEVEL)) {
+                        battery_low++;
+                    } else if ((battery_low > 0) && (battery_level > BATTERY_LOW_LEVEL)) {
+                        battery_low--;
+                    }
                 }
-                if (batteryblink && battery_low) {
+                if (batteryblink && (battery_low == 80)) {
                     SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[i]]));
                     SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[i + 1]]));
                 } else {
@@ -841,6 +883,7 @@ int main(void)
     GPIO_InitTypeDef GPIO_InitStructure;
     EXTI_InitTypeDef EXTI_InitStructure;
     NVIC_InitTypeDef NVIC_InitStructure;
+    DMA_InitTypeDef DMA_InitStructure;
     SPI_InitTypeDef SPI_InitStructure;
     ADC_InitTypeDef ADC_InitStructure;
     DAC_InitTypeDef DAC_InitStructure;
@@ -936,30 +979,67 @@ int main(void)
     /* ADC1 Periph clock enable */
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_ADC1, ENABLE);
 
-    /* Configure ADC Channel11 as analog input */
+    /* Configure ADC Channel0 and Channel8 as analog inputs */
     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
     GPIO_Init(GPIOA, &GPIO_InitStructure);
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
 
     ADC_DeInit(ADC1);
     ADC_StructInit(&ADC_InitStructure);
     /* Configure the ADC1 in continuous mode withe a resolution equal to 12 bits*/
     ADC_InitStructure.ADC_Resolution = ADC_Resolution_12b;
-    ADC_InitStructure.ADC_ContinuousConvMode = ENABLE;
+    ADC_InitStructure.ADC_ContinuousConvMode = DISABLE;
     ADC_InitStructure.ADC_ExternalTrigConvEdge = ADC_ExternalTrigConvEdge_None;
     ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;
     ADC_InitStructure.ADC_ScanDirection = ADC_ScanDirection_Upward;
     ADC_Init(ADC1, &ADC_InitStructure);
 
-    /* Convert the ADC1 Channel 0 with 1.5 Cycles as sampling time */
-    ADC_ChannelConfig(ADC1, ADC_Channel_0, ADC_SampleTime_1_5Cycles);
+    ADC_VrefintCmd(ENABLE);
 
-    ADC_GetCalibrationFactor(ADC1);
+    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1,ENABLE);
+
+    DMA_DeInit(DMA1_Channel1);
+
+    DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&ADC1->DR;
+    DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t)adc_buffer;
+    DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralSRC;
+    DMA_InitStructure.DMA_BufferSize = (sizeof(adc_buffer) / sizeof(uint16_t));
+    DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
+    DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
+    DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
+    DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
+    DMA_InitStructure.DMA_Mode = DMA_Mode_Circular;
+    DMA_InitStructure.DMA_Priority = DMA_Priority_High;
+    DMA_InitStructure.DMA_M2M = DMA_M2M_Disable;
+    DMA_Init(DMA1_Channel1, &DMA_InitStructure);
+
+    DMA_Cmd(DMA1_Channel1, ENABLE);
+
+    ADC_ChannelConfig(ADC1, ADC_Channel_0, ADC_SampleTime_239_5Cycles);
+    ADC_ChannelConfig(ADC1, ADC_Channel_8, ADC_SampleTime_239_5Cycles);
+    ADC_ChannelConfig(ADC1, ADC_Channel_Vrefint, ADC_SampleTime_239_5Cycles);
+
+    ADC_DMARequestModeConfig(ADC1, ADC_DMAMode_Circular);
+
+    adccal = ADC_GetCalibrationFactor(ADC1);
+    ADC_DMACmd(ADC1, ENABLE);
+
+    NVIC_InitStructure.NVIC_IRQChannel = ADC1_COMP_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPriority = 0;
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    NVIC_Init(&NVIC_InitStructure);
+
+    ADC_ITConfig(ADC1, ADC_IT_EOSEQ, ENABLE);
+
     ADC_Cmd(ADC1, ENABLE);
-    while(!ADC_GetFlagStatus(ADC1, ADC_FLAG_ADRDY));
-    ADC_WaitModeCmd(ADC1, ENABLE);
-    ADC_StartOfConversion(ADC1);
+    while(!ADC_GetFlagStatus(ADC1, ADC_FLAG_ADEN));
+    //while(!ADC_GetFlagStatus(ADC1, ADC_FLAG_ADRDY));
+    //ADC_OverrunModeCmd(ADC1, ENABLE);
+    //ADC_WaitModeCmd(ADC1, ENABLE);
+    //ADC_DiscModeCmd(ADC1, ENABLE);
+    //ADC_StartOfConversion(ADC1);
 
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM6, ENABLE);
 
