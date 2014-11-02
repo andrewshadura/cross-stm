@@ -50,6 +50,8 @@ struct settings_t {
     struct setting_t users[4];
     uint32_t seqno;
     uint32_t invalid;
+    uint8_t brightness;
+    uint8_t contrast;
 };
 
 struct settings_t __attribute__((section (".flash.page30"))) settings0;/* = {
@@ -151,6 +153,13 @@ bool autorepeat = false;
 
 bool reload_settings = true;
 volatile bool save_settings_request = false;
+volatile bool set_dbrightness_request = false;
+volatile bool set_dcontrast_request = false;
+volatile bool set_polarity_request = false;
+volatile bool set_zoom_request = false;
+
+bool configuring_camera = false;
+bool configuring_oled = false;
 
 int gauge_value = 0;
 
@@ -166,22 +175,33 @@ bool inverted = false;
 typedef void (*fn_t)(void);
 typedef void (*fn1_t)(int button);
 
+typedef const fn1_t menuitem_t[button_count];
+typedef const menuitem_t menu_t[];
+
 int current_item = 0;
 
-#define MENU_LENGTH ((menu_height / 16))
+//#define MENU_LENGTH ((menu_height / 16))
+#define MENU_LENGTH ((sizeof(main_menu) / sizeof(menuitem_t)))
 
 int current_input = 1;
 
-int current_zoom = 2;
+int current_zoom = 0;
 
-#define MAX_BRIGHTNESS 23
+bool polarity = false;
+
+#define MAX_GAUGE_VALUE 24
+#define MAX_BRIGHTNESS (MAX_GAUGE_VALUE - 1)
 
 uint8_t brightness = MAX_BRIGHTNESS;
+uint8_t dbrightness;
+uint8_t dcontrast;
 
 static void load_settings(void);
 static void init_settings(void);
 static void save_settings(void);
 static void update_brightness(int value);
+static void update_dbrightness(int value);
+static void update_dcontrast(int value);
 
 const char input_map[4] = {
     [0] /* 00 */ = 0,
@@ -189,6 +209,11 @@ const char input_map[4] = {
     [3] /* 11 */ = 2,
     [2] /* 10 */ = 3
 };
+
+uint8_t Tx1Buffer[16] = {0xf0, 0x03, 0x26, 0x01, 0x00, 0x27, 0xff};
+volatile uint8_t Tx1Count = 0;
+uint8_t Tx2Buffer[16] = {0x02, 0x21, 0x03, 0x19, 0x00, 0x03};
+volatile uint8_t Tx2Count = 0;
 
 void update_status(void) {
     int i;
@@ -248,7 +273,11 @@ static void update_gauge(void) {
     }
 }
 
-typedef const fn1_t menu_t[][button_count];
+struct gauge_t {
+    uint8_t * var;
+    fn1_t update_fn;
+    fn1_t finish_fn;
+};
 
 static void next(int button);
 static void prev(int button);
@@ -258,18 +287,23 @@ static void switch_cross(int button);
 static void switch_inversion(int button);
 static void switch_menu(int button);
 static void switch_zoom(int button);
-static void set_brightness(int button);
-static void change_brightness(int button);
-static void finish_brightness(int button);
+static void enter_gauge(int button);
+static void change_gauge(int button);
+static void finish_gauge(int button);
+static void finish_brightness(int value);
+static void finish_dbrightness(int value);
+static void finish_dcontrast(int value);
 static void set_move_cross(int button);
 static void cross_xy(int button);
 static void finish_move(int button);
+static void switch_polarity(int button);
 
 menu_t main_menu = {
     {NULL, prev, next, switch_cross,   NULL, NULL, switch_menu},
-    {NULL, prev, next, set_brightness, NULL, NULL, switch_menu},
-    {NULL, prev, next, NULL,           NULL, NULL, switch_menu},
-    {NULL, prev, next, NULL,           NULL, NULL, switch_menu},
+    {NULL, prev, next, enter_gauge,    NULL, NULL, switch_menu},
+    {NULL, prev, next, switch_polarity,NULL, NULL, switch_menu},
+    {NULL, prev, next, enter_gauge,    NULL, NULL, switch_menu},
+    {NULL, prev, next, enter_gauge,    NULL, NULL, switch_menu},
     {NULL, prev, next, set_move_cross, NULL, NULL, switch_menu},
     {NULL, prev, next, NULL,           NULL, NULL, switch_menu}
 };
@@ -278,9 +312,20 @@ const unsigned char menu_widths[] = {
     8,
     12,
     13,
-    15,
+    8,
+    8,
     10,
     9
+};
+
+struct gauge_t gauges[] = {
+    {NULL, NULL, NULL},
+    {&brightness, update_brightness, finish_brightness},
+    {NULL, NULL, NULL},
+    {&dbrightness, update_dbrightness, finish_dbrightness},
+    {&dcontrast, update_dcontrast, finish_dcontrast},
+    {NULL, NULL, NULL},
+    {NULL, NULL, NULL},
 };
 
 menu_t off_menu = {
@@ -291,8 +336,8 @@ menu_t switch_cross_menu = {
     {NULL, prev_cross, next_cross, switch_cross, prev_cross, next_cross, switch_menu}
 };
 
-menu_t brightness_menu = {
-    {NULL, change_brightness, change_brightness, finish_brightness, change_brightness, change_brightness, switch_menu}
+menu_t gauge_menu = {
+    {NULL, change_gauge, change_gauge, finish_gauge, change_gauge, change_gauge, switch_menu}
 };
 
 menu_t move_cross_menu = {
@@ -317,7 +362,8 @@ static void prev(int button) {
     end_inv = MAINWIN_START + 14 + current_item * 16;
 }
 
-void send_packet(void);
+void send1_packet(void);
+void send2_packet(void);
 
 static void switch_menu(int button) {
     if (menu) {
@@ -326,7 +372,7 @@ static void switch_menu(int button) {
         show_gauge = 0;
     } else {
         menu = 1;
-        send_packet();
+        //send_packet();
         show_cross = 0;
         show_gauge = 0;
     }
@@ -369,21 +415,27 @@ static void switch_cross(int button) {
     }
 }
 
+static void switch_polarity(int button) {
+    polarity = !polarity;
+    set_polarity_request = true;
+}
+
 static void switch_zoom(int button) {
     if (current_zoom == 2) {
         current_zoom = 0;
     } else {
         current_zoom++;
     }
+    set_zoom_request = true;
     reload_settings = true;
 }
 
-static void set_brightness(int button) {
+static void enter_gauge(int button) {
     menu++;
     show_gauge = true;
-    gauge_value = brightness;
-    current_menu = &brightness_menu;
-    update_brightness(brightness);
+    gauge_value = *(gauges[current_item].var);
+    current_menu = &gauge_menu;
+    gauges[current_item].update_fn(gauge_value);
 }
 
 static void update_brightness(int value) {
@@ -394,21 +446,59 @@ static void update_brightness(int value) {
     }
 }
 
-static void change_brightness(int button) {
-    if ((button == button_left) || (button == button_down)) {
-        gauge_value = (gauge_value == 0) ? gauge_value : gauge_value - 1;
-    }
-    if ((button == button_right) || (button == button_up)) {
-        gauge_value = (gauge_value == 23) ? gauge_value : gauge_value + 1;
-    }
-    update_brightness(gauge_value);
+static void update_dbrightness(int value) {
+    dbrightness = value;
+    set_dbrightness_request = true;
 }
 
-static void finish_brightness(int button) {
+static void update_dcontrast(int value) {
+    dcontrast = value;
+    set_dcontrast_request = true;
+}
+
+static void change_gauge(int button) {
+    if ((button == button_left) || (button == button_down)) {
+        /*
+        switch (gauge_value) {
+            case 23: gauge_value = 12; break;
+            case 12: gauge_value = 0; break;
+            case 0: gauge_value = 0; break;
+        }
+        */
+        gauge_value = (gauge_value == 0) ? 0 : gauge_value - 1;
+    }
+    if ((button == button_right) || (button == button_up)) {
+        /*
+        switch (gauge_value) {
+            case 0: gauge_value = 12; break;
+            case 12: gauge_value = 23; break;
+            case 23: gauge_value = 23; break;
+        }
+        */
+        gauge_value = (gauge_value >= 23) ? 23 : gauge_value + 1;
+    }
+    gauges[current_item].update_fn(gauge_value);
+}
+
+static void finish_dbrightness(int value) {
+    dbrightness = value;
+    settings.brightness = value;
+}
+
+static void finish_dcontrast(int value) {
+    dcontrast = value;
+    settings.contrast = value;
+}
+
+static void finish_brightness(int value) {
+    settings.users[current_input].brightness = brightness;
+}
+
+static void finish_gauge(int button) {
     menu--;
     show_gauge = false;
-    brightness = gauge_value;
-    settings.users[current_input].brightness = brightness;
+    *(gauges[current_item].var) = gauge_value;
+    gauges[current_item].finish_fn(gauge_value);
     save_settings_request = true;
 }
 
@@ -603,8 +693,8 @@ void EXTI4_15_IRQHandler(void)
 void draw_nothing(void) {
     if (row == 5) {
         control();
-        /*
-        uint16_t p_w = battery_level;
+        #if 0
+        uint16_t p_w = Tx2Buffer[6];//Tx2Count;
         statusbar_ram_bits[7] = CHARGEN_NUMBERS + p_w % 10;
         p_w /= 10;
         statusbar_ram_bits[6] = CHARGEN_NUMBERS + p_w % 10;
@@ -614,7 +704,7 @@ void draw_nothing(void) {
         statusbar_ram_bits[4] = CHARGEN_NUMBERS + p_w % 10;
         p_w /= 10;
         statusbar_ram_bits[3] = CHARGEN_NUMBERS + p_w % 10;
-        */
+        #endif
     }
     switch (state) {
         case state_status:
@@ -650,6 +740,26 @@ void draw_nothing(void) {
             } else {
                 uint16_t vrefint = *((__IO uint16_t*) 0x1ffff7ba);
                 battery_level = (330L * vrefint / 4096 * adc_buffer[1] / adc_buffer[2]);
+            }
+            if (!configuring_oled) {
+                if (set_dbrightness_request || set_dcontrast_request) {
+                    set_dbrightness_request = false;
+                    set_dcontrast_request = false;
+                    send2_packet();
+                }
+            }
+            if (!configuring_camera) {
+                if (set_polarity_request) {
+                    set_polarity_request = false;
+                    Tx1Buffer[3] = 0x01;
+                    Tx1Buffer[4] = polarity ? 0x00 : 0x0f;
+                    send1_packet();
+                } else if (set_zoom_request) {
+                    set_zoom_request = false;
+                    Tx1Buffer[3] = 0x02;
+                    Tx1Buffer[4] = current_zoom * 2;
+                    send1_packet();
+                }
             }
             break;
     }
@@ -839,6 +949,8 @@ static void init_settings(void) {
 
     settings.seqno = 0;
     settings.invalid = 0x12345678;
+    settings.brightness = MAX_GAUGE_VALUE / 2;
+    settings.contrast = MAX_GAUGE_VALUE / 2;
 }
 
 static void load_settings(void) {
@@ -885,12 +997,8 @@ static void save_settings(void) {
 
 #if 1
 //uint8_t TxBuffer[16] = {0xf0, 0x02, 0x26, 0x00, 0x26, 0xff};
-uint8_t Tx1Buffer[16] = "Hello!";
-volatile uint8_t Tx1Count = 0;
-volatile uint8_t NbrOfDataToTransfer1 = 6;
+volatile uint8_t NbrOfDataToTransfer1 = 7;
 
-uint8_t Tx2Buffer[16] = {0x02, 0x21, 0x03, 0x19, 0x00, 0x03};
-volatile uint8_t Tx2Count = 0;
 volatile uint8_t NbrOfDataToTransfer2 = 6;
 
 void USART1_IRQHandler(void) {
@@ -903,6 +1011,7 @@ void USART1_IRQHandler(void) {
         {
             /* Disable the USART1 Transmit interrupt */
             USART_ITConfig(USART1, USART_IT_TXE, DISABLE);
+            configuring_camera = false;
         }
     }
 }
@@ -917,17 +1026,37 @@ void USART2_IRQHandler(void) {
         {
             /* Disable the USART2 Transmit interrupt */
             USART_ITConfig(USART2, USART_IT_TXE, DISABLE);
+            configuring_oled = false;
         }
     }
 }
 #endif
 
-void send_packet(void) {
-#if 1
-    Tx2Buffer[4] ^= 0xff;
+void send1_packet(void) {
+    Tx1Buffer[5] = 0xff & (Tx1Buffer[2] + Tx1Buffer[3] + Tx1Buffer[4]);
+    NbrOfDataToTransfer1 = Tx1Buffer[1] + 4;
+    configuring_camera = true;
+    Tx1Count = 0;
+    USART_ITConfig(USART1, USART_IT_TXE, ENABLE);
+}
+
+void send2_packet(void) {
+    Tx2Buffer[0] = 0x02;
+    Tx2Buffer[1] = 0x21;
+    Tx2Buffer[2] = 0x05;
+    //Tx2Buffer[3] = 0x4a;
+    //Tx2Buffer[4] = 0x02;
+    Tx2Buffer[3] = 0x09;
+    /* 128 +/-36 */
+    Tx2Buffer[4] = 128 - 36 + (3 * dcontrast);
+    Tx2Buffer[5] = 0x08;
+    /* 128 +/-36 */
+    Tx2Buffer[6] = 128 - 36 + (3 * dbrightness);
+    Tx2Buffer[7] = 0x03;
+    configuring_oled = true;
     Tx2Count = 0;
+    NbrOfDataToTransfer2 = Tx2Buffer[2] + 3;
     USART_ITConfig(USART2, USART_IT_TXE, ENABLE);
-#endif
 }
 
 int main(void)
@@ -1205,6 +1334,12 @@ int main(void)
     update_status();
 
     update_brightness(brightness);
+    update_dbrightness(settings.brightness);
+    update_dcontrast(settings.contrast);
+    send2_packet();
+
+    set_zoom_request = true;
+    set_polarity_request = true;
 
     current_fn = draw_nothing;
 
