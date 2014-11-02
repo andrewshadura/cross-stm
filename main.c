@@ -142,6 +142,7 @@ int button = button_none;
 int cross_type = cross_type_big;
 
 bool batteryblink = true;
+volatile bool send = false;
 
 bool show_cross = true;
 bool show_gauge = false;
@@ -316,6 +317,8 @@ static void prev(int button) {
     end_inv = MAINWIN_START + 14 + current_item * 16;
 }
 
+void send_packet(void);
+
 static void switch_menu(int button) {
     if (menu) {
         menu = 0;
@@ -323,6 +326,7 @@ static void switch_menu(int button) {
         show_gauge = 0;
     } else {
         menu = 1;
+        send_packet();
         show_cross = 0;
         show_gauge = 0;
     }
@@ -691,6 +695,7 @@ void draw_status(void) {
                 if (++count == 350) {
                     count = 0;
                     batteryblink = !batteryblink;
+                    send = true;
                     //button = button_down;
                     if ((battery_low < 80) && (battery_level <= BATTERY_LOW_LEVEL)) {
                         battery_low++;
@@ -878,6 +883,53 @@ static void save_settings(void) {
     }
 }
 
+#if 1
+//uint8_t TxBuffer[16] = {0xf0, 0x02, 0x26, 0x00, 0x26, 0xff};
+uint8_t Tx1Buffer[16] = "Hello!";
+volatile uint8_t Tx1Count = 0;
+volatile uint8_t NbrOfDataToTransfer1 = 6;
+
+uint8_t Tx2Buffer[16] = {0x02, 0x21, 0x03, 0x19, 0x00, 0x03};
+volatile uint8_t Tx2Count = 0;
+volatile uint8_t NbrOfDataToTransfer2 = 6;
+
+void USART1_IRQHandler(void) {
+    if (USART_GetITStatus(USART1, USART_IT_TXE) != RESET)
+    {
+        /* Write one byte to the transmit data register */
+        USART_SendData(USART1, Tx1Buffer[Tx1Count++]);
+
+        if (Tx1Count == NbrOfDataToTransfer1)
+        {
+            /* Disable the USART1 Transmit interrupt */
+            USART_ITConfig(USART1, USART_IT_TXE, DISABLE);
+        }
+    }
+}
+
+void USART2_IRQHandler(void) {
+    if (USART_GetITStatus(USART2, USART_IT_TXE) != RESET)
+    {
+        /* Write one byte to the transmit data register */
+        USART_SendData(USART2, Tx2Buffer[Tx2Count++]);
+
+        if (Tx2Count == NbrOfDataToTransfer2)
+        {
+            /* Disable the USART2 Transmit interrupt */
+            USART_ITConfig(USART2, USART_IT_TXE, DISABLE);
+        }
+    }
+}
+#endif
+
+void send_packet(void) {
+#if 1
+    Tx2Buffer[4] ^= 0xff;
+    Tx2Count = 0;
+    USART_ITConfig(USART2, USART_IT_TXE, ENABLE);
+#endif
+}
+
 int main(void)
 {
     GPIO_InitTypeDef GPIO_InitStructure;
@@ -897,7 +949,7 @@ int main(void)
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
     GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_Level_1;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_Level_3;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
 
     /* Enable GPIOA clock */
@@ -1071,6 +1123,9 @@ int main(void)
 
     USART_DeInit(USART1);
     USART_DeInit(USART2);
+
+    RCC_USARTCLKConfig(RCC_USART1CLK_PCLK);
+
     /* Enable USART clock */
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
 
@@ -1090,6 +1145,8 @@ int main(void)
 
     /* USART configuration */
     USART_Init(USART2, &USART_InitStructure);
+
+    USART2->BRR = 5000;
 
     /* Enable USART */
     USART_Cmd(USART2, ENABLE);
@@ -1124,8 +1181,24 @@ int main(void)
     /* USART configuration */
     USART_Init(USART1, &USART_InitStructure);
 
+    USART1->BRR = 2500;
+
     /* Enable USART */
     USART_Cmd(USART1, ENABLE);
+
+#if 1
+    /* Enable the USART1 Interrupt */
+    NVIC_InitStructure.NVIC_IRQChannel = USART1_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPriority = 0;
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    NVIC_Init(&NVIC_InitStructure);
+
+    /* Enable the USART1 Interrupt */
+    NVIC_InitStructure.NVIC_IRQChannel = USART2_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPriority = 0;
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    NVIC_Init(&NVIC_InitStructure);
+#endif
 
     load_settings();
 
@@ -1138,11 +1211,30 @@ int main(void)
     while(1)
     {
         PWR_EnterSleepMode(PWR_SLEEPEntry_WFE);
-        /*
-        USART_SendData(USART1, 0xa7);
-        USART_SendData(USART2, 0xa7);
-        */
+#if 0
+        if (send) {
+            fputc('A', NULL);
+            send = false;
+        }
+#endif
+        //USART_SendData(USART2, 0xa7);
     }
 }
 
+/**
+  * @brief  Retargets the C library printf function to the USART.
+  * @param  None
+  * @retval None
+  */
+int fputc(int ch, FILE *f)
+{
+    USART_TypeDef* USARTx = (f == stderr) ? USART2 : USART1;
+    USART_SendData(USARTx, (uint8_t) ch);
+
+    /* Loop until transmit data register is empty */
+    while (USART_GetFlagStatus(USARTx, USART_FLAG_TXE) == RESET)
+    {}
+
+    return ch;
+}
 
