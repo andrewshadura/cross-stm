@@ -157,6 +157,10 @@ volatile bool set_dbrightness_request = false;
 volatile bool set_dcontrast_request = false;
 volatile bool set_polarity_request = false;
 volatile bool set_zoom_request = false;
+volatile uint8_t calibration_request = 0;
+volatile uint8_t calibration_button_request = 0;
+volatile uint8_t calibration_button = 0;
+#define CALIBRATE 17
 
 bool configuring_camera = false;
 bool configuring_oled = false;
@@ -166,6 +170,10 @@ int gauge_value = 0;
 int menu = 0;
 
 bool inverted = false;
+
+bool once = false;
+
+uint8_t frameno = 0;
 
 #define HCOUNT_OFF   -2
 #define HCOUNT_ON     0
@@ -297,6 +305,10 @@ static void set_move_cross(int button);
 static void cross_xy(int button);
 static void finish_move(int button);
 static void switch_polarity(int button);
+static void calibrate_xy(int button);
+static void calibrate_set(int button);
+static void calibrate_menu(int button);
+static void calibrate_enter(int button);
 
 menu_t main_menu = {
     {NULL, prev, next, switch_cross,   NULL, NULL, switch_menu},
@@ -305,7 +317,7 @@ menu_t main_menu = {
     {NULL, prev, next, enter_gauge,    NULL, NULL, switch_menu},
     {NULL, prev, next, enter_gauge,    NULL, NULL, switch_menu},
     {NULL, prev, next, set_move_cross, NULL, NULL, switch_menu},
-    {NULL, prev, next, NULL,           NULL, NULL, switch_menu}
+    {NULL, prev, next, calibrate_enter,NULL, NULL, switch_menu}
 };
 
 const unsigned char menu_widths[] = {
@@ -342,6 +354,10 @@ menu_t gauge_menu = {
 
 menu_t move_cross_menu = {
     {NULL, cross_xy, cross_xy, finish_move, cross_xy, cross_xy, switch_menu}
+};
+
+menu_t calibrate_cross_menu = {
+    {NULL, calibrate_xy, calibrate_xy, calibrate_set, calibrate_xy, calibrate_xy, NULL}
 };
 
 menu_t * current_menu = &main_menu;
@@ -541,6 +557,48 @@ static void finish_move(int button) {
     menu--;
 }
 
+uint8_t calibrate_mode = 0;
+
+static void calibrate_xy(int button) {
+    switch (button) {
+        case button_left:
+            calibration_button = GPIO_Pin_7;
+            break;
+        case button_right:
+            calibration_button = GPIO_Pin_4;
+            if (calibrate_mode == 3) {
+                menu = 1;
+            }
+            break;
+        case button_up:
+            calibration_button = GPIO_Pin_5;
+            break;
+        case button_down:
+            calibrate_mode = (calibrate_mode + 1) & 3;
+            calibration_button = GPIO_Pin_6;
+            break;
+    }
+    calibration_button_request = 2;
+}
+
+static void calibrate_set(int button) {
+}
+
+static void calibrate_menu(int button) {
+    menu = 0;
+    show_cross = 1;
+    show_gauge = 0;
+}
+
+static void calibrate_enter(int button) {
+    menu = 2;
+    show_cross = 0;
+    show_gauge = 0;
+    calibration_request = CALIBRATE;
+    current_menu = &calibrate_cross_menu;
+    calibrate_mode = 0;
+}
+
 #define STEPS 5
 #define STEPWIDTH (1024/STEPS)
 
@@ -680,6 +738,8 @@ void EXTI4_15_IRQHandler(void)
             if (found) {
                 row = 3;
                 found = false;
+                once = true;
+                frameno = 0xf & (frameno + 1);
             }
             pulses = 0;
             HSYNC();
@@ -694,7 +754,7 @@ void draw_nothing(void) {
     if (row == 5) {
         control();
         #if 0
-        uint16_t p_w = Tx2Buffer[6];//Tx2Count;
+        uint16_t p_w = frameno;//Tx2Count;
         statusbar_ram_bits[7] = CHARGEN_NUMBERS + p_w % 10;
         p_w /= 10;
         statusbar_ram_bits[6] = CHARGEN_NUMBERS + p_w % 10;
@@ -733,6 +793,9 @@ void draw_nothing(void) {
                     return;
                 }
             }
+            if ((menu == 2) && (!show_cross) && (!show_gauge)) {
+                state = state_bottom;
+            }
             break;
         case state_bottom:
             if (save_settings_request && (menu == 0)) {
@@ -741,24 +804,53 @@ void draw_nothing(void) {
                 uint16_t vrefint = *((__IO uint16_t*) 0x1ffff7ba);
                 battery_level = (330L * vrefint / 4096 * adc_buffer[1] / adc_buffer[2]);
             }
-            if (!configuring_oled) {
-                if (set_dbrightness_request || set_dcontrast_request) {
-                    set_dbrightness_request = false;
-                    set_dcontrast_request = false;
-                    send2_packet();
+            if (once) {
+                once = false;
+                if (!configuring_oled) {
+                    if (set_dbrightness_request || set_dcontrast_request) {
+                        set_dbrightness_request = false;
+                        set_dcontrast_request = false;
+                        send2_packet();
+                    }
                 }
-            }
-            if (!configuring_camera) {
-                if (set_polarity_request) {
-                    set_polarity_request = false;
-                    Tx1Buffer[3] = 0x01;
-                    Tx1Buffer[4] = polarity ? 0x00 : 0x0f;
-                    send1_packet();
-                } else if (set_zoom_request) {
-                    set_zoom_request = false;
-                    Tx1Buffer[3] = 0x02;
-                    Tx1Buffer[4] = current_zoom * 2;
-                    send1_packet();
+                if (!configuring_camera) {
+                    if (set_polarity_request) {
+                        set_polarity_request = false;
+                        Tx1Buffer[1] = 0x03;
+                        Tx1Buffer[3] = 0x01;
+                        Tx1Buffer[4] = polarity ? 0x00 : 0x0f;
+                        send1_packet();
+                    } else if (set_zoom_request) {
+                        set_zoom_request = false;
+                        Tx1Buffer[1] = 0x03;
+                        Tx1Buffer[3] = 0x02;
+                        Tx1Buffer[4] = current_zoom * 2;
+                        send1_packet();
+                    } else if (calibration_button_request) {
+                        if (frameno == 0) {
+                            if ((calibration_button_request & 1) == 0) {
+                                GPIOB->ODR &= (~calibration_button);
+                            } else {
+                                GPIOB->ODR |= calibration_button;
+                            }
+                            calibration_button_request--;
+                        }
+                    } else if (calibration_request) {
+                        if (frameno == 0) {
+                            GPIOB->ODR &= (~(GPIO_Pin_4 | GPIO_Pin_7));
+                            if ((calibration_request & 1) == 0) {
+                                GPIOB->ODR &= (~GPIO_Pin_6);
+                            } else {
+                                GPIOB->ODR |= GPIO_Pin_6;
+                            }
+                            //send1_packet();
+                            calibration_request--;
+                            if (calibration_request == 0) {
+                                GPIOB->ODR |= (GPIO_Pin_4 | GPIO_Pin_5 | GPIO_Pin_6 | GPIO_Pin_7);
+                            }
+                        }
+
+                    }
                 }
             }
             break;
@@ -1033,8 +1125,15 @@ void USART2_IRQHandler(void) {
 #endif
 
 void send1_packet(void) {
-    Tx1Buffer[5] = 0xff & (Tx1Buffer[2] + Tx1Buffer[3] + Tx1Buffer[4]);
-    NbrOfDataToTransfer1 = Tx1Buffer[1] + 4;
+    int length = Tx1Buffer[1];
+    int i;
+    uint8_t checksum = 0;
+    for (i = 0; i < length; i++) {
+        checksum = 0xff & (checksum + Tx1Buffer[2 + i]);
+    }
+    Tx1Buffer[2 + length] = checksum;
+    Tx1Buffer[2 + length + 1] = 0xff;
+    NbrOfDataToTransfer1 = length + 4;
     configuring_camera = true;
     Tx1Count = 0;
     USART_ITConfig(USART1, USART_IT_TXE, ENABLE);
@@ -1079,6 +1178,22 @@ int main(void)
     GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_Level_3;
+    //GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+    GPIOB->ODR |= GPIO_Pin_4;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4;
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+    GPIOB->ODR |= GPIO_Pin_5;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5;
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+    GPIOB->ODR |= GPIO_Pin_6;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6;
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+    GPIOB->ODR |= GPIO_Pin_7;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_7;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
 
     /* Enable GPIOA clock */
@@ -1151,8 +1266,7 @@ int main(void)
     SPI_NSSInternalSoftwareConfig(SPI1, SPI_NSSInternalSoft_Set);
     SPI_Cmd(SPI1, ENABLE);
 
-    /* Turn on LED*/
-    GPIOB->BSRR = GPIO_Pin_3;
+    //GPIOB->BSRR = GPIO_Pin_3;
     GPIOA->BSRR = GPIO_Pin_7;
 
     GPIO_PinAFConfig(GPIOA, GPIO_PinSource7, GPIO_AF_0);
