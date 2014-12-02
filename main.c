@@ -204,6 +204,8 @@ uint8_t brightness = MAX_BRIGHTNESS;
 uint8_t dbrightness;
 uint8_t dcontrast;
 
+uint8_t calibrate_mode = 0;
+
 static void load_settings(void);
 static void init_settings(void);
 static void save_settings(void);
@@ -289,6 +291,7 @@ struct gauge_t {
 
 static void next(int button);
 static void prev(int button);
+static void camera_contrast(int button);
 static void next_cross(int button);
 static void prev_cross(int button);
 static void switch_cross(int button);
@@ -309,6 +312,7 @@ static void calibrate_xy(int button);
 static void calibrate_set(int button);
 static void calibrate_menu(int button);
 static void calibrate_enter(int button);
+static void reset_settings(int button);
 
 menu_t main_menu = {
     {NULL, prev, next, switch_cross,   NULL, NULL, switch_menu},
@@ -317,7 +321,8 @@ menu_t main_menu = {
     {NULL, prev, next, enter_gauge,    NULL, NULL, switch_menu},
     {NULL, prev, next, enter_gauge,    NULL, NULL, switch_menu},
     {NULL, prev, next, set_move_cross, NULL, NULL, switch_menu},
-    {NULL, prev, next, calibrate_enter,NULL, NULL, switch_menu}
+    {NULL, prev, next, calibrate_enter,NULL, NULL, switch_menu},
+    {NULL, prev, next, reset_settings, NULL, NULL, switch_menu}
 };
 
 const unsigned char menu_widths[] = {
@@ -327,7 +332,8 @@ const unsigned char menu_widths[] = {
     8,
     8,
     10,
-    9
+    9,
+    5
 };
 
 struct gauge_t gauges[] = {
@@ -338,10 +344,11 @@ struct gauge_t gauges[] = {
     {&dcontrast, update_dcontrast, finish_dcontrast},
     {NULL, NULL, NULL},
     {NULL, NULL, NULL},
+    {NULL, NULL, NULL}
 };
 
 menu_t off_menu = {
-    {NULL, switch_zoom, switch_inversion, NULL, NULL, NULL, switch_menu}
+    {NULL, switch_zoom, switch_inversion, NULL, camera_contrast, camera_contrast, switch_menu}
 };
 
 menu_t switch_cross_menu = {
@@ -349,7 +356,7 @@ menu_t switch_cross_menu = {
 };
 
 menu_t gauge_menu = {
-    {NULL, change_gauge, change_gauge, finish_gauge, change_gauge, change_gauge, switch_menu}
+    {NULL, NULL, NULL, finish_gauge, change_gauge, change_gauge, switch_menu}
 };
 
 menu_t move_cross_menu = {
@@ -380,6 +387,11 @@ static void prev(int button) {
 
 void send1_packet(void);
 void send2_packet(void);
+
+static void camera_contrast(int button) {
+    calibration_button = (button != button_right) ? GPIO_Pin_4 : GPIO_Pin_7;
+    calibration_button_request = 2;
+}
 
 static void switch_menu(int button) {
     if (menu) {
@@ -557,8 +569,6 @@ static void finish_move(int button) {
     menu--;
 }
 
-uint8_t calibrate_mode = 0;
-
 static void calibrate_xy(int button) {
     switch (button) {
         case button_left:
@@ -566,8 +576,12 @@ static void calibrate_xy(int button) {
             break;
         case button_right:
             calibration_button = GPIO_Pin_4;
+            if (calibrate_mode == 2) {
+                calibrate_mode = 0;
+            }
             if (calibrate_mode == 3) {
                 menu = 1;
+                calibrate_mode = 0;
             }
             break;
         case button_up:
@@ -623,6 +637,7 @@ void ADC1_COMP_IRQHandler(void)
 
 static void buttons(void)
 {
+    static uint8_t old_button = button_none;
     if (!ad_done) return;
     ad_done = false;
     buttons_level = adc_buffer[0];
@@ -634,19 +649,26 @@ static void buttons(void)
 
     if (debounced_code == 0) {
         hcount = HCOUNT_OFF;
+        if (old_button == button_menu) {
+            button = button_menu;
+            old_button = button_none;
+        }
     } else {
         if (hcount == HCOUNT_ON) {
-            button = debounced_code;
+            old_button = debounced_code;
+            if (debounced_code != button_menu) {
+                button = debounced_code;
+            }
         }
         if (hcount >= HCOUNT_REPEAT) {
             if ((debounced_code != button_menu)) {
                 hcount = HCOUNT_ON;
                 if (autorepeat) {
-                    button = debounced_code;
+                    old_button = button = debounced_code;
                 }
             } else {
                 if (hcount == (HCOUNT_LONG - 1)) {
-                    button = button_long;
+                    old_button = button = button_long;
                 }
             }
         }
@@ -754,7 +776,7 @@ void draw_nothing(void) {
     if (row == 5) {
         control();
         #if 0
-        uint16_t p_w = frameno;//Tx2Count;
+        uint16_t p_w = calibrate_mode;
         statusbar_ram_bits[7] = CHARGEN_NUMBERS + p_w % 10;
         p_w /= 10;
         statusbar_ram_bits[6] = CHARGEN_NUMBERS + p_w % 10;
@@ -1043,6 +1065,14 @@ static void init_settings(void) {
     settings.invalid = 0x12345678;
     settings.brightness = MAX_GAUGE_VALUE / 2;
     settings.contrast = MAX_GAUGE_VALUE / 2;
+}
+
+static void reset_settings(int button) {
+    init_settings();
+    update_dbrightness(settings.brightness);
+    update_dcontrast(settings.contrast);
+    reload_settings = true;
+    save_settings_request = true;
 }
 
 static void load_settings(void) {
