@@ -94,7 +94,7 @@ uint16_t start_inv = MAINWIN_START + 3, end_inv = MAINWIN_START + 14;
 
 int battery_low = 0;
 
-#define BATTERY_LOW_LEVEL 95
+#define BATTERY_LOW_LEVEL 78
 
 volatile uint16_t battery_level = 0;
 
