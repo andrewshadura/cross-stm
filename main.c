@@ -317,33 +317,33 @@ static void reset_settings(int button);
 menu_t main_menu = {
     {NULL, prev, next, switch_cross,   NULL, NULL, switch_menu},
     {NULL, prev, next, enter_gauge,    NULL, NULL, switch_menu},
-    {NULL, prev, next, switch_polarity,NULL, NULL, switch_menu},
+    //{NULL, prev, next, switch_polarity,NULL, NULL, switch_menu},
     {NULL, prev, next, enter_gauge,    NULL, NULL, switch_menu},
     {NULL, prev, next, enter_gauge,    NULL, NULL, switch_menu},
     {NULL, prev, next, set_move_cross, NULL, NULL, switch_menu},
-    {NULL, prev, next, calibrate_enter,NULL, NULL, switch_menu},
+    //{NULL, prev, next, calibrate_enter,NULL, NULL, switch_menu},
     {NULL, prev, next, reset_settings, NULL, NULL, switch_menu}
 };
 
 const unsigned char menu_widths[] = {
     8,
     12,
-    13,
+    //13,
     8,
     8,
     10,
-    9,
+    //9,
     5
 };
 
 struct gauge_t gauges[] = {
     {NULL, NULL, NULL},
     {&brightness, update_brightness, finish_brightness},
-    {NULL, NULL, NULL},
+    //{NULL, NULL, NULL},
     {&dbrightness, update_dbrightness, finish_dbrightness},
     {&dcontrast, update_dcontrast, finish_dcontrast},
     {NULL, NULL, NULL},
-    {NULL, NULL, NULL},
+    //{NULL, NULL, NULL},
     {NULL, NULL, NULL}
 };
 
