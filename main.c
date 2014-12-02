@@ -389,7 +389,7 @@ void send1_packet(void);
 void send2_packet(void);
 
 static void camera_contrast(int button) {
-    calibration_button = (button != button_right) ? GPIO_Pin_4 : GPIO_Pin_7;
+    calibration_button = (button == button_right) ? GPIO_Pin_4 : GPIO_Pin_7;
     calibration_button_request = 2;
 }
 
