@@ -449,13 +449,8 @@ static void switch_polarity(int button) {
 }
 
 static void switch_zoom(int button) {
-    if (current_zoom == 2) {
-        current_zoom = 0;
-    } else {
-        current_zoom++;
-    }
-    set_zoom_request = true;
-    reload_settings = true;
+    calibration_button = GPIO_Pin_5;
+    calibration_button_request = 2;
 }
 
 static void enter_gauge(int button) {
