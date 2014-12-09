@@ -73,12 +73,17 @@ uint16_t adccal = 0;
 
 #define CHARGEN_PROGRESS 8
 #define CHARGEN_NUMBERS 11
+#define CHARGEN_PLUS    (10 + CHARGEN_NUMBERS)
+#define CHARGEN_MINUS   (11 + CHARGEN_NUMBERS)
+#define CHARGEN_X       (12 + CHARGEN_NUMBERS)
+#define CHARGEN_Y       (13 + CHARGEN_NUMBERS)
 
 unsigned char statusbar_ram_bits[statusbar_width / 8];
 unsigned char gauge_ram_bits[12];
 
 #define STATUSBAR_START 25
 #define MAINWIN_START 120
+#define GAUGE_START 240
 #define CROSS_CENTRE cross_y
 
 #define CROSS_Y_DEFAULT 162
@@ -148,6 +153,7 @@ volatile bool send = false;
 
 bool show_cross = true;
 bool show_gauge = false;
+bool show_coords = false;
 
 bool autorepeat = false;
 
@@ -234,7 +240,7 @@ void update_status(void) {
     }
 
     statusbar_ram_bits[0] = current_input;
-    for (i = 1; i <= 20; i++) {
+    for (i = 1; i <= 24; i++) {
         statusbar_ram_bits[i] = 0;
     }
     switch (current_zoom) {
@@ -252,7 +258,7 @@ void update_status(void) {
             break;
     }
 
-    for (i = 21; i < (statusbar_width / 8); i++) {
+    for (i = 25; i < (statusbar_width / 8); i++) {
         statusbar_ram_bits[i] = i;
     }
 
@@ -317,7 +323,7 @@ static void reset_settings(int button);
 menu_t main_menu = {
     {NULL, prev, next, switch_cross,   NULL, NULL, switch_menu},
     {NULL, prev, next, enter_gauge,    NULL, NULL, switch_menu},
-    {NULL, prev, next, switch_polarity,NULL, NULL, switch_menu},
+    //{NULL, prev, next, switch_polarity,NULL, NULL, switch_menu},
     {NULL, prev, next, enter_gauge,    NULL, NULL, switch_menu},
     {NULL, prev, next, enter_gauge,    NULL, NULL, switch_menu},
     {NULL, prev, next, set_move_cross, NULL, NULL, switch_menu},
@@ -328,10 +334,10 @@ menu_t main_menu = {
 const unsigned char menu_widths[] = {
     8,
     12,
-    13,
+    //13,
     8,
     8,
-    10,
+    23,
     9,
     5
 };
@@ -339,7 +345,7 @@ const unsigned char menu_widths[] = {
 struct gauge_t gauges[] = {
     {NULL, NULL, NULL},
     {&brightness, update_brightness, finish_brightness},
-    {NULL, NULL, NULL},
+    //{NULL, NULL, NULL},
     {&dbrightness, update_dbrightness, finish_dbrightness},
     {&dcontrast, update_dcontrast, finish_dcontrast},
     {NULL, NULL, NULL},
@@ -396,13 +402,18 @@ static void camera_contrast(int button) {
 static void switch_menu(int button) {
     if (menu) {
         menu = 0;
-        show_cross = 1;
-        show_gauge = 0;
+        cross_type = settings.users[current_input].cross_type;
+        cross_x = settings.users[current_input].coords[current_zoom].x;
+        cross_y = settings.users[current_input].coords[current_zoom].y;
+        show_cross = true;
+        show_gauge = false;
+        show_coords = false;
     } else {
         menu = 1;
         //send_packet();
-        show_cross = 0;
-        show_gauge = 0;
+        show_cross = false;
+        show_gauge = false;
+        show_coords = false;
     }
 }
 
@@ -461,6 +472,9 @@ static void switch_zoom(int button) {
 static void enter_gauge(int button) {
     menu++;
     show_gauge = true;
+    cross_x = CROSS_X_DEFAULT;
+    cross_y = CROSS_Y_DEFAULT;
+    show_cross = 1;
     gauge_value = *(gauges[current_item].var);
     current_menu = &gauge_menu;
     gauges[current_item].update_fn(gauge_value);
@@ -525,6 +539,9 @@ static void finish_brightness(int value) {
 static void finish_gauge(int button) {
     menu--;
     show_gauge = false;
+    show_cross = 0;
+    cross_x = settings.users[current_input].coords[current_zoom].x;
+    cross_y = settings.users[current_input].coords[current_zoom].y;
     *(gauges[current_item].var) = gauge_value;
     gauges[current_item].finish_fn(gauge_value);
     save_settings_request = true;
@@ -533,6 +550,7 @@ static void finish_gauge(int button) {
 static void set_move_cross(int button) {
     menu++;
     current_menu = &move_cross_menu;
+    show_coords = true;
     show_cross = true;
 }
 
@@ -566,6 +584,7 @@ static void finish_move(int button) {
     settings.users[current_input].coords[current_zoom].y = cross_y;
     save_settings_request = true;
     show_cross = false;
+    show_coords = false;
     menu--;
 }
 
@@ -600,14 +619,14 @@ static void calibrate_set(int button) {
 
 static void calibrate_menu(int button) {
     menu = 0;
-    show_cross = 1;
-    show_gauge = 0;
+    show_cross = true;
+    show_gauge = false;
 }
 
 static void calibrate_enter(int button) {
     menu = 2;
-    show_cross = 0;
-    show_gauge = 0;
+    show_cross = false;
+    show_gauge = false;
     calibration_request = CALIBRATE;
     current_menu = &calibrate_cross_menu;
     calibrate_mode = 0;
@@ -775,17 +794,48 @@ void EXTI4_15_IRQHandler(void)
 void draw_nothing(void) {
     if (row == 5) {
         control();
-        #if 0
-        uint16_t p_w = calibrate_mode;
-        statusbar_ram_bits[7] = CHARGEN_NUMBERS + p_w % 10;
-        p_w /= 10;
-        statusbar_ram_bits[6] = CHARGEN_NUMBERS + p_w % 10;
-        p_w /= 10;
-        statusbar_ram_bits[5] = CHARGEN_NUMBERS + p_w % 10;
-        p_w /= 10;
-        statusbar_ram_bits[4] = CHARGEN_NUMBERS + p_w % 10;
-        p_w /= 10;
-        statusbar_ram_bits[3] = CHARGEN_NUMBERS + p_w % 10;
+        #if 1
+        if (show_coords) {
+            int16_t p_w = cross_x - CROSS_X_DEFAULT;
+            #define NUMBERS_START 14
+            statusbar_ram_bits[NUMBERS_START + 0] = 0;
+            statusbar_ram_bits[NUMBERS_START + 1] = 0;
+            if (p_w < 0) {
+                statusbar_ram_bits[NUMBERS_START + 1] = CHARGEN_MINUS;
+                p_w = -p_w;
+            } else if (p_w > 0) {
+                statusbar_ram_bits[NUMBERS_START + 1] = CHARGEN_PLUS;
+            }
+            statusbar_ram_bits[NUMBERS_START + 2] = CHARGEN_NUMBERS + p_w % 10;
+            p_w /= 10;
+            if (p_w) {
+                statusbar_ram_bits[NUMBERS_START - 1] = CHARGEN_X;
+                statusbar_ram_bits[NUMBERS_START + 0] = statusbar_ram_bits[NUMBERS_START + 1];
+                statusbar_ram_bits[NUMBERS_START + 1] = CHARGEN_NUMBERS + p_w % 10;
+            } else {
+                statusbar_ram_bits[NUMBERS_START + 0] = CHARGEN_X;
+            }
+
+            p_w = CROSS_Y_DEFAULT - cross_y;
+            statusbar_ram_bits[NUMBERS_START + 4] = 0;
+            statusbar_ram_bits[NUMBERS_START + 5] = 0;
+            statusbar_ram_bits[NUMBERS_START + 6] = 0;
+            if (p_w < 0) {
+                statusbar_ram_bits[NUMBERS_START + 6] = CHARGEN_MINUS;
+                p_w = -p_w;
+            } else if (p_w > 0) {
+                statusbar_ram_bits[NUMBERS_START + 6] = CHARGEN_PLUS;
+            }
+            statusbar_ram_bits[NUMBERS_START + 7] = CHARGEN_NUMBERS + p_w % 10;
+            p_w /= 10;
+            if (p_w) {
+                statusbar_ram_bits[NUMBERS_START + 4] = CHARGEN_Y;
+                statusbar_ram_bits[NUMBERS_START + 5] = statusbar_ram_bits[NUMBERS_START + 6];
+                statusbar_ram_bits[NUMBERS_START + 6] = CHARGEN_NUMBERS + p_w % 10;
+            } else {
+                statusbar_ram_bits[NUMBERS_START + 5] = CHARGEN_Y;
+            }
+        }
         #endif
     }
     switch (state) {
@@ -820,6 +870,11 @@ void draw_nothing(void) {
             }
             break;
         case state_bottom:
+            if (row == GAUGE_START) {
+                if (show_gauge) {
+                    current_fn = draw_gauge;
+                }
+            }
             if (save_settings_request && (menu == 0)) {
                 save_settings();
             } else {
@@ -909,6 +964,7 @@ void draw_status(void) {
                     for (; i < right; i++) {
                         SPI_SendData8(SPI1, ~(*(ptr2++)));
                         while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
+                        if (((*(ptr2)) == (*(ptr2 - 1))) && ((*(ptr2)) == 0)) break;
                     }
                     for (; i < (statusbar_width / 8) - 2; i++) {
                         SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[i]]));
@@ -1001,10 +1057,10 @@ void draw_cross(void) {
 }
 
 void draw_gauge(void) {
-                Delay(LEFT_OFFSET + 160);
+                Delay(LEFT_OFFSET + 180);
 
                 int i;
-                const char * ptr = &statusbar_bits[row - MAINWIN_START][0];
+                const char * ptr = &statusbar_bits[row - GAUGE_START][0];
 
                 //SPI_SendData8(SPI1, ~(ptr[gauge_ram_bits[0]]));
                 //SPI_SendData8(SPI1, ~(ptr[gauge_ram_bits[1]]));
@@ -1014,7 +1070,7 @@ void draw_gauge(void) {
                 }
                 SPI_SendData8(SPI1, 0xff);
 
-    if (row >= (MAINWIN_START + 15)) {
+    if (row >= (GAUGE_START + 15)) {
         current_fn = draw_nothing;
     }
 }
