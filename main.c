@@ -266,8 +266,12 @@ void update_status(void) {
         cross_type = settings.users[current_input].cross_type;
         brightness = settings.users[current_input].brightness;
         update_brightness(brightness);
-        cross_x = settings.users[current_input].coords[current_zoom].x;
-        cross_y = settings.users[current_input].coords[current_zoom].y;
+
+        int16_t delta_x = settings.users[current_input].coords[0].x - CROSS_X_DEFAULT;
+        int16_t delta_y = settings.users[current_input].coords[0].y - CROSS_Y_DEFAULT;
+
+        cross_x = CROSS_X_DEFAULT + delta_x << current_zoom;
+        cross_y = CROSS_Y_DEFAULT + delta_y << current_zoom;
 
         reload_settings = false;
     }
@@ -548,6 +552,7 @@ static void finish_gauge(int button) {
 }
 
 static void set_move_cross(int button) {
+    if (current_zoom) return;
     menu++;
     current_menu = &move_cross_menu;
     show_coords = true;
@@ -681,9 +686,15 @@ static void buttons(void)
         }
         if (hcount >= HCOUNT_REPEAT) {
             if ((debounced_code != button_menu)) {
-                hcount = HCOUNT_ON;
-                if (autorepeat) {
-                    old_button = button = debounced_code;
+                if (menu > 0) {
+                    hcount = HCOUNT_ON;
+                    if (autorepeat) {
+                        old_button = button = debounced_code;
+                    }
+                } else {
+                    if ((debounced_code == button_down) && (hcount == (HCOUNT_LONG - 1))) {
+                        switch_polarity(debounced_code);
+                    }
                 }
             } else {
                 if (hcount == (HCOUNT_LONG - 1)) {
@@ -852,11 +863,11 @@ void draw_nothing(void) {
                     current_fn = draw_menu;
                     state = state_bottom;
                     return;
-                } else if (show_gauge) {
+                } /* else if (show_gauge) {
                     current_fn = draw_gauge;
                     state = state_bottom;
                     return;
-                }
+                } */
             }
             if (row >= (CROSS_CENTRE - cross_height[cross_type] / 2)) {
                 if (show_cross) {
