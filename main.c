@@ -395,8 +395,7 @@ void send1_packet(void);
 void send2_packet(void);
 
 static void camera_contrast(int button) {
-    calibration_button = (button == button_right) ? GPIO_Pin_4 : GPIO_Pin_7;
-    calibration_button_request = 2;
+    update_dbrightness((button == button_right) ? dbrightness + 1 : dbrightness - 1);
 }
 
 static void switch_menu(int button) {
@@ -460,7 +459,8 @@ static void switch_polarity(int button) {
 }
 
 static void switch_zoom(int button) {
-    calibration_button = GPIO_Pin_5;
+    /* day/night mode */
+    calibration_button = GPIO_Pin_4;
     calibration_button_request = 2;
 }
 
