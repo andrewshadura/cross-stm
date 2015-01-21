@@ -267,11 +267,8 @@ void update_status(void) {
         brightness = settings.users[current_input].brightness;
         update_brightness(brightness);
 
-        int16_t delta_x = settings.users[current_input].coords[0].x - CROSS_X_DEFAULT;
-        int16_t delta_y = settings.users[current_input].coords[0].y - CROSS_Y_DEFAULT;
-
-        cross_x = CROSS_X_DEFAULT + delta_x << current_zoom;
-        cross_y = CROSS_Y_DEFAULT + delta_y << current_zoom;
+        cross_x = settings.users[current_input].coords[current_zoom].x;
+        cross_y = settings.users[current_input].coords[current_zoom].y;
 
         reload_settings = false;
     }
@@ -552,7 +549,6 @@ static void finish_gauge(int button) {
 }
 
 static void set_move_cross(int button) {
-    if (current_zoom) return;
     menu++;
     current_menu = &move_cross_menu;
     show_coords = true;
@@ -587,6 +583,14 @@ static void cross_xy(int button) {
 static void finish_move(int button) {
     settings.users[current_input].coords[current_zoom].x = cross_x;
     settings.users[current_input].coords[current_zoom].y = cross_y;
+    if (current_zoom == 0) {
+        int16_t delta_x = settings.users[current_input].coords[0].x - CROSS_X_DEFAULT;
+        int16_t delta_y = settings.users[current_input].coords[0].y - CROSS_Y_DEFAULT;
+        settings.users[current_input].coords[1].x = CROSS_X_DEFAULT + delta_x * 2;
+        settings.users[current_input].coords[1].y = CROSS_Y_DEFAULT + delta_y * 2;
+        settings.users[current_input].coords[2].x = CROSS_X_DEFAULT + delta_x * 4;
+        settings.users[current_input].coords[2].y = CROSS_Y_DEFAULT + delta_y * 4;
+    }
     save_settings_request = true;
     show_cross = false;
     show_coords = false;
