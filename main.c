@@ -83,11 +83,11 @@ unsigned char gauge_ram_bits[12];
 
 #define STATUSBAR_START 25
 #define MAINWIN_START 120
-#define GAUGE_START 240
+#define GAUGE_START 220
 #define CROSS_CENTRE cross_y
 
-#define CROSS_Y_DEFAULT 162
-#define CROSS_X_DEFAULT (LEFT_OFFSET + 173)
+#define CROSS_Y_DEFAULT (162-27)
+#define CROSS_X_DEFAULT (LEFT_OFFSET + 175)
 
 #define CROSS_X_RANGE 85
 #define CROSS_Y_RANGE 85
