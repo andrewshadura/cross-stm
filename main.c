@@ -333,13 +333,13 @@ menu_t main_menu = {
 };
 
 const unsigned char menu_widths[] = {
-    8,
+    11,
     12,
     //13,
-    8,
+    10,
     8,
     23,
-    9,
+    11,
     5
 };
 
