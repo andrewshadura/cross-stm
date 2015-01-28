@@ -53,7 +53,7 @@ build: $(TARGETS) $(LISTINGS)
 .s.o:
 	$(COMPILE.c) $(OUTPUT_OPTION) $<
 
-$(PROG)-%.elf: $(SRC:.c=.o) $(patsubst %.s,%.o,$(LIB:.c=.o)) $(patsubst %.xbm,%.o,$(wildcard cross-*.xbm)) menu-%.o statusbar.o
+$(PROG)-%.elf: $(SRC:%.c=%)-%.o $(patsubst %.s,%.o,$(LIB:.c=.o)) $(patsubst %.xbm,%.o,$(wildcard cross-*.xbm)) menu-%.o statusbar.o
 	$(LINK.c) $^ $(LDLIBS) -o $@
 
 $(PROG)-%.hex: $(PROG)-%.elf
@@ -63,7 +63,7 @@ $(PROG)-%.lst: $(PROG)-%.elf
 	$(OBJDUMP) -St $< > $@
 
 main-%.o: main.c
-	$(COMPILE.c) -DCONFIG=$(word 1,$(subst -, ,$(@:test-%=%))) -DLANG=$(word 2,$(subst -, ,$(@:test-%=%))) $(OUTPUT_OPTION) $<
+	$(COMPILE.c) -DCONFIG=$(word 1,$(subst -, ,$(@:main-%.o=%))) -DLANG=$(word 2,$(subst -, ,$(@:main-%.o=%))) $(OUTPUT_OPTION) $<
 
 XBMFLAGS=-Dstatic= -Dunsigned=const -x c
 
@@ -88,6 +88,6 @@ export: $(PROG).hex
 	cp $< /tmp/test-$(X)-$$(date +\%F.\%H.\%M.\%S)-$$(cat .hg/bookmarks.current).hex
 
 clean:
-	rm -f $(SRC:.c=.o) $(patsubst %.s,%.o,$(LIB:.c=.o)) $(patsubst %.xbm,%.o,$(wildcard *.xbm))
+	rm -f main-??-??.o $(patsubst %.s,%.o,$(LIB:.c=.o)) $(patsubst %.xbm,%.o,$(wildcard *.xbm))
 
 .PHONY: cmsis_boot/system_stm32f0xx_temp.c
