@@ -84,8 +84,12 @@ cross-%.h: cross-%.c
 program: $(PROG).hex
 	stm32flash -w $< /dev/ttyUSB0
 
-export: $(PROG).hex
-	cp $< /tmp/test-$(X)-$$(date +\%F.\%H.\%M.\%S)-$$(cat .hg/bookmarks.current).hex
+export: $(TARGETS:$(PROG)-%.hex=export-%)
+
+DATE:=$(shell date +\%F.\%H.\%M.\%S)
+
+export-%: $(PROG)-%.hex
+	cp $< /tmp/cross-$(X)-$(DATE)-$*.hex
 
 clean:
 	rm -f main-??-??.o $(patsubst %.s,%.o,$(LIB:.c=.o)) $(patsubst %.xbm,%.o,$(wildcard *.xbm))
