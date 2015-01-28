@@ -1,12 +1,12 @@
 #include "menu-ir-en.h"
 
 const unsigned char menu_widths[] = {
-    11,
+    8,
     12,
     //13,
-    10,
+    8,
     8,
     23,
-    11,
+    9,
     5
 };
