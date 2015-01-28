@@ -344,7 +344,7 @@ menu_t off_menu = {
 };
 
 menu_t switch_cross_menu = {
-    {NULL, prev_cross, next_cross, switch_cross, prev_cross, next_cross, switch_menu}
+    {NULL, NULL, NULL, switch_cross, prev_cross, next_cross, switch_menu}
 };
 
 menu_t gauge_menu = {
