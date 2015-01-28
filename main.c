@@ -17,7 +17,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "galaxians.h"
 #include "statusbar.h"
 #include "cross-big.h"
 #include "cross-tdot.h"
