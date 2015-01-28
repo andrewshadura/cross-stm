@@ -1,4 +1,4 @@
-#include "menu-vd-en.h"
+#include LANG_SPECIFIC
 
 menu_t main_menu = {
     {NULL, prev, next, switch_cross,   NULL, NULL, switch_menu},
@@ -9,17 +9,6 @@ menu_t main_menu = {
     {NULL, prev, next, set_move_cross, NULL, NULL, switch_menu},
     //{NULL, prev, next, calibrate_enter,NULL, NULL, switch_menu},
     {NULL, prev, next, reset_settings, NULL, NULL, switch_menu}
-};
-
-const unsigned char menu_widths[] = {
-    11,
-    12,
-    //13,
-    10,
-    8,
-    23,
-    //9,
-    5
 };
 
 struct gauge_t gauges[] = {

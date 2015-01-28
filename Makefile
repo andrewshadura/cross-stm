@@ -42,7 +42,7 @@ LDFLAGS ?= -mcpu=$(CPU_FAMILY) -mthumb $(DEBUG) -nostartfiles -Wl,-Map=$(PROG).m
 
 LANGUAGES ?= $(patsubst menu-%.xcf,%,$(wildcard menu-*.xcf))
 
-TARGETS = $(patsubst %,$(PROG)-%.hex,$(LANGUAGES))
+TARGETS = $(LANGUAGES:%=$(PROG)-%.hex)
 
 LISTINGS = $(TARGETS:.hex=.lst)
 
@@ -61,6 +61,9 @@ $(PROG)-%.hex: $(PROG)-%.elf
 
 $(PROG)-%.lst: $(PROG)-%.elf
 	$(OBJDUMP) -St $< > $@
+
+main-%.o: main.c
+	$(COMPILE.c) -DCONFIG=$(word 1,$(subst -, ,$(@:test-%=%))) -DLANG=$(word 2,$(subst -, ,$(@:test-%=%))) $(OUTPUT_OPTION) $<
 
 XBMFLAGS=-Dstatic= -Dunsigned=const -x c
 

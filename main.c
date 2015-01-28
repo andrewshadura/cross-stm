@@ -332,10 +332,11 @@ volatile uint16_t buttons_level;
 #define STRINGIFY(x) STRINGIFY_(x)
 #define CONFIGISE_(x) STRINGIFY(x##_specific.c)
 #define CONFIGISE(x) CONFIGISE_(x)
-
-#define CONFIG no-ir
+#define LANGISE_(config,lang) STRINGIFY(menu-config-lang-w.h)
+#define LANGISE(...) LANGISE_(__VA_ARGS__)
 
 #define CONFIG_SPECIFIC CONFIGISE(CONFIG)
+#define LANG_SPECIFIC LANGISE(CONFIG,LANG)
 
 #include CONFIG_SPECIFIC
 
