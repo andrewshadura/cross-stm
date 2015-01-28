@@ -34,26 +34,32 @@ CFLAGS ?= -mcpu=$(CPU_FAMILY) -mthumb $(WARN) -ffunction-sections $(DEBUG) -O$(O
 
 LIB = $(wildcard ./stm32_lib/src/*.c) $(wildcard ./cmsis_boot/*.c) $(wildcard ./cmsis_boot/startup/*.s) $(wildcard ./syscalls/*.c)
 
-PROG ?= test
+PROG ?= cross
 
 SRC ?= main.c
 
 LDFLAGS ?= -mcpu=$(CPU_FAMILY) -mthumb $(DEBUG) -nostartfiles -Wl,-Map=$(PROG).map -Wl,--gc-sections -Wl,-T./link.ld
 
-build: $(PROG).hex $(PROG).lst
+LANGUAGES ?= $(patsubst menu-%.xcf,%,$(wildcard menu-*.xcf))
+
+TARGETS = $(patsubst %,$(PROG)-%.hex,$(LANGUAGES))
+
+LISTINGS = $(TARGETS:.hex=.lst)
+
+build: $(TARGETS) $(LISTINGS)
 
 .SUFFIXES: .xbm
 
 .s.o:
 	$(COMPILE.c) $(OUTPUT_OPTION) $<
 
-$(PROG).elf: $(SRC:.c=.o) $(patsubst %.s,%.o,$(LIB:.c=.o)) $(patsubst %.xbm,%.o,$(wildcard *.xbm))
+$(PROG)-%.elf: $(SRC:.c=.o) $(patsubst %.s,%.o,$(LIB:.c=.o)) $(patsubst %.xbm,%.o,$(wildcard cross-*.xbm)) menu-%.o statusbar.o
 	$(LINK.c) $^ $(LDLIBS) -o $@
 
-$(PROG).hex: $(PROG).elf
+$(PROG)-%.hex: $(PROG)-%.elf
 	$(OBJCOPY) -O ihex $< $@
 
-$(PROG).lst: $(PROG).elf
+$(PROG)-%.lst: $(PROG)-%.elf
 	$(OBJDUMP) -St $< > $@
 
 XBMFLAGS=-Dstatic= -Dunsigned=const -x c

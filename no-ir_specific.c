@@ -1,3 +1,5 @@
+#include "menu-vd-en.h"
+
 menu_t main_menu = {
     {NULL, prev, next, switch_cross,   NULL, NULL, switch_menu},
     {NULL, prev, next, enter_gauge,    NULL, NULL, switch_menu},

@@ -19,7 +19,6 @@
 
 #include "galaxians.h"
 #include "statusbar.h"
-#include "menu.h"
 #include "cross-big.h"
 #include "cross-tdot.h"
 #include "cross-tdot-mini.h"
