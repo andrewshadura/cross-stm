@@ -79,12 +79,12 @@ uint16_t adccal = 0;
 unsigned char statusbar_ram_bits[statusbar_width / 8];
 unsigned char gauge_ram_bits[12];
 
-#define STATUSBAR_START 25
-#define MAINWIN_START 120
-#define GAUGE_START 240
+#define STATUSBAR_START (25+9)
+#define MAINWIN_START (120+9)
+#define GAUGE_START (240+9)
 #define CROSS_CENTRE cross_y
 
-#define CROSS_Y_DEFAULT 162
+#define CROSS_Y_DEFAULT (162+9)
 #define CROSS_X_DEFAULT (LEFT_OFFSET + 175)
 
 #define CROSS_X_RANGE 85
@@ -685,7 +685,7 @@ void EXTI4_15_IRQHandler(void)
     {
         pulse_width = TIM6->CNT;
         TIM6->CNT = 0;
-        if ((pulse_width < 3000) && (row > 255)) {
+        if ((pulse_width < 2700) && (row > 255)) {
             pulses++;
             if (pulses == 3) {
                 found = true;
