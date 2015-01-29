@@ -382,6 +382,12 @@ void send2_packet(void);
 
 static void switch_menu(int button) {
     if (menu) {
+        if (menu == 2) {
+            fn1_t callback = (*current_menu)[0][button_menu];
+            if (callback) {
+                callback(button_menu);
+            }
+        }
         menu = 0;
         cross_type = settings.users[current_input].cross_type;
         cross_x = settings.users[current_input].coords[current_zoom].x;
