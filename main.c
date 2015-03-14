@@ -1097,31 +1097,31 @@ volatile uint8_t NbrOfDataToTransfer1 = 7;
 
 volatile uint8_t NbrOfDataToTransfer2 = 6;
 
-void USART1_IRQHandler(void) {
-    if (USART_GetITStatus(USART1, USART_IT_TXE) != RESET)
+void USART2_IRQHandler(void) {
+    if (USART_GetITStatus(USART2, USART_IT_TXE) != RESET)
     {
         /* Write one byte to the transmit data register */
-        USART_SendData(USART1, Tx1Buffer[Tx1Count++]);
+        USART_SendData(USART2, Tx1Buffer[Tx1Count++]);
 
         if (Tx1Count == NbrOfDataToTransfer1)
         {
             /* Disable the USART1 Transmit interrupt */
-            USART_ITConfig(USART1, USART_IT_TXE, DISABLE);
+            USART_ITConfig(USART2, USART_IT_TXE, DISABLE);
             configuring_camera = false;
         }
     }
 }
 
-void USART2_IRQHandler(void) {
-    if (USART_GetITStatus(USART2, USART_IT_TXE) != RESET)
+void USART1_IRQHandler(void) {
+    if (USART_GetITStatus(USART1, USART_IT_TXE) != RESET)
     {
         /* Write one byte to the transmit data register */
-        USART_SendData(USART2, Tx2Buffer[Tx2Count++]);
+        USART_SendData(USART1, Tx2Buffer[Tx2Count++]);
 
         if (Tx2Count == NbrOfDataToTransfer2)
         {
             /* Disable the USART2 Transmit interrupt */
-            USART_ITConfig(USART2, USART_IT_TXE, DISABLE);
+            USART_ITConfig(USART1, USART_IT_TXE, DISABLE);
             configuring_oled = false;
         }
     }
@@ -1140,7 +1140,7 @@ void send1_packet(void) {
     NbrOfDataToTransfer1 = length + 4;
     configuring_camera = true;
     Tx1Count = 0;
-    USART_ITConfig(USART1, USART_IT_TXE, ENABLE);
+    USART_ITConfig(USART2, USART_IT_TXE, ENABLE);
 }
 
 void send2_packet(void) {
@@ -1159,7 +1159,7 @@ void send2_packet(void) {
     configuring_oled = true;
     Tx2Count = 0;
     NbrOfDataToTransfer2 = Tx2Buffer[2] + 3;
-    USART_ITConfig(USART2, USART_IT_TXE, ENABLE);
+    USART_ITConfig(USART1, USART_IT_TXE, ENABLE);
 }
 
 int main(void)
@@ -1394,7 +1394,7 @@ int main(void)
     /* USART configuration */
     USART_Init(USART2, &USART_InitStructure);
 
-    USART2->BRR = 5000;
+    USART2->BRR = 2500;
 
     /* Enable USART */
     USART_Cmd(USART2, ENABLE);
@@ -1429,7 +1429,7 @@ int main(void)
     /* USART configuration */
     USART_Init(USART1, &USART_InitStructure);
 
-    USART1->BRR = 2500;
+    USART1->BRR = 5000;
 
     /* Enable USART */
     USART_Cmd(USART1, ENABLE);
