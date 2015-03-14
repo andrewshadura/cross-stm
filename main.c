@@ -237,7 +237,7 @@ void update_status(void) {
         reload_settings = true;
     }
 
-    statusbar_ram_bits[0] = current_input;
+    statusbar_ram_bits[0] = CHARGEN_NUMBERS + current_input;
     for (i = 1; i <= 24; i++) {
         statusbar_ram_bits[i] = 0;
     }
