@@ -38,6 +38,8 @@ struct setting_t {
 
 volatile uint16_t adc_buffer[3] = {4095, 4095, 4095};
 
+#define MAX_USERS 8
+
 struct settings_t {
     /*
         for each user:
@@ -45,7 +47,7 @@ struct settings_t {
             brightness
             cross type
      */
-    struct setting_t users[4];
+    struct setting_t users[MAX_USERS];
     uint32_t seqno;
     uint32_t invalid;
     uint8_t brightness;
@@ -217,11 +219,48 @@ static void update_brightness(int value);
 static void update_dbrightness(int value);
 static void update_dcontrast(int value);
 
-const char input_map[4] = {
-    [0] /* 00 */ = 0,
-    [1] /* 01 */ = 1,
-    [3] /* 11 */ = 2,
-    [2] /* 10 */ = 3
+/*
+  |15|14|13|12|11|10| 9| 8| 7| 6| 5| 4| 3| 2| 1| 0|
+
+A =       3  4  5        6                    1     = 0x3902
+B =                                     2  7        = 0x000c
+
+A + 0x0300:          [1][1]
+C =       3  4  5  6  X  X                    1
+
+Ch >> 7:
+                               3  4  5  6  X  X
+(Cl + B) >> 1:
+                                           2  7  1
+
+                               3  4  5  6  2  7  1
+                               2  3  4  5  1  6  0
+
+                               6  5  4  3  2  1  0
+
+*/
+
+#define A_MASK (GPIO_Pin_13 | GPIO_Pin_12 | GPIO_Pin_11 | GPIO_Pin_8 | GPIO_Pin_1)
+#define B_MASK (GPIO_Pin_3 | GPIO_Pin_2)
+#define C_MASK (GPIO_Pin_13 | GPIO_Pin_12 | GPIO_Pin_11 | GPIO_Pin_10 | GPIO_Pin_1)
+
+static inline char merge_inputs(uint16_t a, uint16_t b) {
+    a = ((a & A_MASK) + 0x0300) & C_MASK;
+    b = b & B_MASK;
+
+    uint16_t al = (a | b) & ((A_MASK | B_MASK) & 0xff);
+    b = (al >> 1) | (a >> 7);
+    return b & 0x7f;
+}
+
+const char input_map[128] = {
+#define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
+/*
+    8, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
+    LT(4), LT(5), LT(5), LT(6), LT(6), LT(6), LT(6)
+*/
+    LT(2), LT(2), LT(2), LT(2), LT(3), LT(3), LT(4),
+    5, 5, 5, 5, 5, 5, 5, 5, 1, 1, 1, 1, 6, 6, 0, 7
 };
 
 uint8_t Tx1Buffer[16] = {0xf0, 0x03, 0x26, 0x01, 0x00, 0x27, 0xff};
@@ -231,16 +270,20 @@ volatile uint8_t Tx2Count = 0;
 
 void update_status(void) {
     int i;
-    uint8_t input = ((GPIOA->IDR & (GPIO_Pin_2 | GPIO_Pin_1)) >> 1);
-    if (input_map[input] != current_input) {
-        current_input = input_map[input];
+    uint16_t a = GPIOA->IDR;
+    uint16_t b = GPIOB->IDR;
+    uint8_t inputs = merge_inputs(a, b);
+    uint8_t input = input_map[inputs];
+    if (input != current_input) {
+        current_input = input;
         reload_settings = true;
     }
 
-    statusbar_ram_bits[0] = CHARGEN_NUMBERS + current_input;
+    statusbar_ram_bits[0] = CHARGEN_NUMBERS + current_input + 1;
     for (i = 1; i <= 24; i++) {
         statusbar_ram_bits[i] = 0;
     }
+
     switch (current_zoom) {
         case 1:
             statusbar_ram_bits[14] = 4;
@@ -1025,7 +1068,7 @@ void HSYNC(void) {
 
 static void init_settings(void) {
     int i;
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < MAX_USERS; i++) {
         int j;
         for (j = 0; j < 3; j++) {
             settings.users[i].coords[j].x = CROSS_X_DEFAULT;
@@ -1234,9 +1277,12 @@ int main(void)
     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
 
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2 | GPIO_Pin_1;
+    GPIO_InitStructure.GPIO_Pin = A_MASK;
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
     GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+    GPIO_InitStructure.GPIO_Pin = B_MASK;
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
 
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
 
