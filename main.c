@@ -597,6 +597,14 @@ static void cross_xy(int button) {
 static void finish_move(int button) {
     settings.users[current_input].coords[current_zoom].x = cross_x;
     settings.users[current_input].coords[current_zoom].y = cross_y;
+    if (current_zoom == 0) {
+        int16_t delta_x = settings.users[current_input].coords[0].x - CROSS_X_DEFAULT;
+        int16_t delta_y = settings.users[current_input].coords[0].y - CROSS_Y_DEFAULT;
+        settings.users[current_input].coords[1].x = CROSS_X_DEFAULT + delta_x * 2;
+        settings.users[current_input].coords[1].y = CROSS_Y_DEFAULT + delta_y * 2;
+        settings.users[current_input].coords[2].x = CROSS_X_DEFAULT + delta_x * 4;
+        settings.users[current_input].coords[2].y = CROSS_Y_DEFAULT + delta_y * 4;
+    }
     save_settings_request = true;
     show_cross = false;
     show_coords = false;
