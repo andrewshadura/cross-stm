@@ -81,7 +81,10 @@ cross-%.h: cross-%.c
 	head -n2 < ${<:.c=.xbm} > $@
 	sed -n -e 's,const,extern const,g' -e '/const/s, =.*$$,;,gp' $< >> $@
 
-program: $(PROG).hex
+program: $(firstword $(TARGETS))
+	stm32flash -w $< /dev/ttyUSB0
+
+program-%: %.hex
 	stm32flash -w $< /dev/ttyUSB0
 
 export: $(TARGETS:$(PROG)-%.hex=export-%)
