@@ -19,6 +19,7 @@
 
 #include "statusbar.h"
 #include "cross-big.h"
+#include "cross-small.h"
 #include "cross-tdot.h"
 #include "cross-tdot-mini.h"
 #include "cross-milt.h"
@@ -129,6 +130,7 @@ enum buttons {
 enum cross_type {
     cross_type_min = 0,
     cross_type_big = cross_type_min,
+    cross_type_small,
     cross_type_tdot,
     cross_type_tdot_mini,
     cross_type_milt,
@@ -139,6 +141,7 @@ enum cross_type {
 
 const unsigned char cross_height[] = {
     [cross_type_big] = cross_big_height,
+    [cross_type_small] = cross_small_height,
     [cross_type_tdot] = cross_tdot_height,
     [cross_type_tdot_mini] = cross_tdot_mini_height,
     [cross_type_milt] = cross_milt_height
@@ -1003,6 +1006,7 @@ void draw_cross(void) {
                 const char * ptr;
                 const char * ptrs[] = {
                     [cross_type_big]  = &cross_big_lines[cross_big_bits[row - CROSS_START]][0],
+                    [cross_type_small]  = &cross_small_lines[cross_small_bits[row - CROSS_START]][0],
                     [cross_type_tdot] = &cross_tdot_lines[cross_tdot_bits[row - CROSS_START]][0],
                     [cross_type_tdot_mini] = &cross_tdot_mini_lines[cross_tdot_mini_bits[row - CROSS_START]][0],
                     [cross_type_milt] = &cross_milt_lines[cross_milt_bits[row - CROSS_START]][0]
