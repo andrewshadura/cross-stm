@@ -450,6 +450,8 @@ static void select_confirm(int button) {
     show_menu = false;
     current_menu_height = menu_height;
     current_menu = &main_menu;
+    start_inv = MAINWIN_START + 3 + current_item * 16;
+    end_inv = MAINWIN_START + 14 + current_item * 16;
 }
 
 void send1_packet(void);
