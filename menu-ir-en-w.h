@@ -10,3 +10,5 @@ const unsigned char menu_widths[] = {
     11,
     5
 };
+
+#include "helper-en.h"

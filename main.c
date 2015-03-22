@@ -156,6 +156,7 @@ volatile bool send = false;
 
 bool show_cross = true;
 bool show_gauge = false;
+bool show_menu = false;
 bool show_coords = false;
 
 bool autorepeat = false;
@@ -196,9 +197,13 @@ typedef const fn1_t menuitem_t[button_count];
 typedef const menuitem_t menu_t[];
 
 int current_item = 0;
+int current_confirm = 0;
 
 //#define MENU_LENGTH ((menu_height / 16))
 #define MENU_LENGTH ((sizeof(main_menu) / sizeof(menuitem_t)))
+
+int current_menu_height;
+int current_menu_length;
 
 int current_input = 1;
 
@@ -341,6 +346,8 @@ struct gauge_t {
 
 static void next(int button);
 static void prev(int button);
+static void next_confirm(int button);
+static void select_confirm(int button);
 static void camera_contrast(int button);
 static void next_cross(int button);
 static void prev_cross(int button);
@@ -362,6 +369,7 @@ static void calibrate_xy(int button);
 static void calibrate_set(int button);
 static void calibrate_menu(int button);
 static void calibrate_enter(int button);
+static void reset_confirm(int button);
 static void reset_settings(int button);
 
 #define STEPS 5
@@ -405,22 +413,43 @@ menu_t calibrate_cross_menu = {
     {NULL, calibrate_xy, calibrate_xy, calibrate_set, calibrate_xy, calibrate_xy, NULL}
 };
 
+menu_t confirm_menu = {
+    {NULL, next_confirm, next_confirm, select_confirm, NULL, NULL, NULL},
+};
+
 menu_t * current_menu = &main_menu;
 
 static void next(int button) {
-    current_item = (current_item + 1) % MENU_LENGTH;
+    current_item = (current_item + 1) % current_menu_length;
     start_inv = MAINWIN_START + 3 + current_item * 16;
     end_inv = MAINWIN_START + 14 + current_item * 16;
 }
 
 static void prev(int button) {
     if (current_item == 0) {
-        current_item = MENU_LENGTH - 1;
+        current_item = current_menu_length - 1;
     } else {
         current_item--;
     }
     start_inv = MAINWIN_START + 3 + current_item * 16;
     end_inv = MAINWIN_START + 14 + current_item * 16;
+}
+
+static void next_confirm(int button) {
+    current_confirm = !current_confirm;
+    start_inv = MAINWIN_START + 3 + current_confirm * 16;
+    end_inv = MAINWIN_START + 14 + current_confirm * 16;
+}
+
+static void select_confirm(int button) {
+    if (current_confirm == 0) {
+        /* yes */
+        reset_settings(button);
+    }
+    menu--;
+    show_menu = false;
+    current_menu_height = menu_height;
+    current_menu = &main_menu;
 }
 
 void send1_packet(void);
@@ -447,6 +476,10 @@ static void switch_menu(int button) {
         show_cross = false;
         show_gauge = false;
         show_coords = false;
+        start_inv = MAINWIN_START + 3 + current_item * 16;
+        end_inv = MAINWIN_START + 14 + current_item * 16;
+        current_menu_height = menu_height;
+        current_menu_length = MENU_LENGTH;
     }
 }
 
@@ -719,6 +752,7 @@ bool found = false;
 void draw_nothing(void);
 void draw_status(void);
 void draw_menu(void);
+void draw_confirm(void);
 void draw_cross(void);
 void draw_gauge(void);
 
@@ -820,7 +854,7 @@ void draw_nothing(void) {
             break;
         case state_main:
             if (row >= MAINWIN_START) {
-                if (menu == 1) {
+                if ((menu == 1) || (show_menu)) {
                     current_fn = draw_menu;
                     state = state_bottom;
                     return;
@@ -837,7 +871,7 @@ void draw_nothing(void) {
                     return;
                 }
             }
-            if ((menu == 2) && (!show_cross) && (!show_gauge)) {
+            if ((menu == 2) && (!show_cross) && (!show_gauge) && (!show_menu)) {
                 state = state_bottom;
             }
             break;
@@ -932,7 +966,7 @@ void draw_status(void) {
                         SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[i]]));
                         while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
                     }
-                    const char * ptr2 = &menu_bits[start_inv - MAINWIN_START + status_row - 2][0];
+                    const char * ptr2 = &menu_bits[current_item * 16 + status_row][0];
                     for (; i < right; i++) {
                         SPI_SendData8(SPI1, ~(*(ptr2++)));
                         while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
@@ -974,7 +1008,11 @@ void draw_menu(void) {
 
                 int i;
                 const char * ptr;
-                ptr = &menu_bits[row - MAINWIN_START][0];
+                if (menu < 2) {
+                    ptr = &menu_bits[row - MAINWIN_START][0];
+                } else {
+                    ptr = &helper_bits[row - MAINWIN_START][0];
+                }
                 bool notselected = ((row < start_inv) | (row > end_inv));
                 if (notselected) {
                     SPI_SendData8(SPI1, ~(*(ptr++)));
@@ -993,7 +1031,7 @@ void draw_menu(void) {
                 }
                 SPI_SendData8(SPI1, 0xff);
 
-    if (row >= (MAINWIN_START + menu_height - 1)) {
+    if (row >= (MAINWIN_START + current_menu_height - 1)) {
         current_fn = draw_nothing;
     }
 }
@@ -1094,6 +1132,16 @@ static void init_settings(void) {
     settings.invalid = 0x12345678;
     settings.brightness = MAX_GAUGE_VALUE / 2;
     settings.contrast = MAX_GAUGE_VALUE / 2;
+}
+
+static void reset_confirm(int button) {
+    menu++;
+    current_menu = &confirm_menu;
+    show_menu = true;
+    current_menu_height = 2 * 16;
+    current_confirm = 1;
+    start_inv = MAINWIN_START + 3 + current_confirm * 16;
+    end_inv = MAINWIN_START + 14 + current_confirm * 16;
 }
 
 static void reset_settings(int button) {

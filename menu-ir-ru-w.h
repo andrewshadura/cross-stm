@@ -10,3 +10,5 @@ const unsigned char menu_widths[] = {
     9,
     5
 };
+
+#include "helper-ru.h"

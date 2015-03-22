@@ -53,7 +53,7 @@ build: $(TARGETS) $(LISTINGS)
 .s.o:
 	$(COMPILE.c) $(OUTPUT_OPTION) $<
 
-$(PROG)-%.elf: $(SRC:%.c=%)-%.o $(patsubst %.s,%.o,$(LIB:.c=.o)) $(patsubst %.xbm,%.o,$(wildcard cross-*.xbm)) menu-%.o statusbar.o
+$(PROG)-%.elf: $(SRC:%.c=%)-%.o $(patsubst %.s,%.o,$(LIB:.c=.o)) $(patsubst %.xbm,%.o,$(wildcard cross-*.xbm)) menu-%.o statusbar.o helper-%.o
 	$(LINK.c) $^ $(LDLIBS) -o $@
 
 $(PROG)-%.hex: $(PROG)-%.elf
@@ -61,6 +61,9 @@ $(PROG)-%.hex: $(PROG)-%.elf
 
 $(PROG)-%.lst: $(PROG)-%.elf
 	$(OBJDUMP) -St $< > $@
+
+helper-%.o: $(wildcard helper-*.xbm)
+	$(COMPILE.c) $(XBMFLAGS) $(OUTPUT_OPTION) helper-$(word 2,$(subst -, ,$(@:helper-%.o=%))).xbm
 
 main-%.o: main.c
 	$(COMPILE.c) -DCONFIG=$(word 1,$(subst -, ,$(@:main-%.o=%))) -DLANG=$(word 2,$(subst -, ,$(@:main-%.o=%))) $(OUTPUT_OPTION) $<
