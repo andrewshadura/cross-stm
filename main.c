@@ -967,6 +967,15 @@ void draw_status(void) {
                         while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
                     }
                     const char * ptr2 = &menu_bits[current_item * 16 + status_row][0];
+                        /*
+                    if (1) {
+                        //if (cross_type == cross_type_big)
+                            ptr2 = &statusbar_bits[8 * 3 + status_row - 5][0];
+                        if (cross_type == cross_type_small)
+                            ptr2 = &statusbar_bits[8 * 3 + status_row - 5][9];
+                    }
+                        */
+
                     for (; i < right; i++) {
                         SPI_SendData8(SPI1, ~(*(ptr2++)));
                         while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
