@@ -805,6 +805,27 @@ void draw_nothing(void) {
         #if 1
         if (show_coords) {
             int16_t p_w = cross_x - CROSS_X_DEFAULT;
+            #define F_START 4
+            if (cross_type == cross_type_big) {
+                int p = F_START;
+                statusbar_ram_bits[p++] = 1;
+                statusbar_ram_bits[p++] = CHARGEN_NUMBERS + 1;
+                statusbar_ram_bits[p++] = CHARGEN_NUMBERS + 0;
+                statusbar_ram_bits[p++] = CHARGEN_NUMBERS + 0;
+                statusbar_ram_bits[p++] = 2;
+                statusbar_ram_bits[p++] = CHARGEN_NUMBERS + 5;
+                statusbar_ram_bits[p++] = CHARGEN_NUMBERS + 2;
+            }
+            if (cross_type == cross_type_small) {
+                int p = F_START;
+                statusbar_ram_bits[p++] = 1;
+                statusbar_ram_bits[p++] = CHARGEN_NUMBERS + 7;
+                statusbar_ram_bits[p++] = CHARGEN_NUMBERS + 5;
+                statusbar_ram_bits[p++] = 2;
+                statusbar_ram_bits[p++] = CHARGEN_NUMBERS + 4;
+                statusbar_ram_bits[p++] = CHARGEN_NUMBERS + 0;
+            }
+
             #define NUMBERS_START 14
             statusbar_ram_bits[NUMBERS_START + 0] = 0;
             statusbar_ram_bits[NUMBERS_START + 1] = 0;
@@ -969,15 +990,6 @@ void draw_status(void) {
                         while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
                     }
                     const char * ptr2 = &menu_bits[current_item * 16 + status_row][0];
-                        /*
-                    if (1) {
-                        //if (cross_type == cross_type_big)
-                            ptr2 = &statusbar_bits[8 * 3 + status_row - 5][0];
-                        if (cross_type == cross_type_small)
-                            ptr2 = &statusbar_bits[8 * 3 + status_row - 5][9];
-                    }
-                        */
-
                     for (; i < right; i++) {
                         SPI_SendData8(SPI1, ~(*(ptr2++)));
                         while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);

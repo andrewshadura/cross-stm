@@ -6,7 +6,7 @@ const unsigned char menu_widths[] = {
     //13,
     8,
     8,
-    23,
+    0,
     9,
     5
 };
