@@ -638,16 +638,26 @@ static void cross_xy(int button) {
     }
 }
 
+static uint16_t clamp(uint16_t centre, int16_t delta, int16_t max) {
+    if (delta > max) {
+        delta = max;
+    }
+    if ((-delta) > max) {
+        delta = -max;
+    }
+    return centre + delta;
+}
+
 static void finish_move(int button) {
     settings.users[current_input].coords[current_zoom].x = cross_x;
     settings.users[current_input].coords[current_zoom].y = cross_y;
     if (current_zoom == 0) {
         int16_t delta_x = settings.users[current_input].coords[0].x - CROSS_X_DEFAULT;
         int16_t delta_y = settings.users[current_input].coords[0].y - CROSS_Y_DEFAULT;
-        settings.users[current_input].coords[1].x = CROSS_X_DEFAULT + delta_x * 2;
-        settings.users[current_input].coords[1].y = CROSS_Y_DEFAULT + delta_y * 2;
-        settings.users[current_input].coords[2].x = CROSS_X_DEFAULT + delta_x * 4;
-        settings.users[current_input].coords[2].y = CROSS_Y_DEFAULT + delta_y * 4;
+        settings.users[current_input].coords[1].x = clamp(CROSS_X_DEFAULT, delta_x * 2, CROSS_X_RANGE);
+        settings.users[current_input].coords[1].y = clamp(CROSS_Y_DEFAULT, delta_y * 2, CROSS_Y_RANGE);
+        settings.users[current_input].coords[2].x = clamp(CROSS_X_DEFAULT, delta_x * 4, CROSS_X_RANGE);
+        settings.users[current_input].coords[2].y = clamp(CROSS_Y_DEFAULT, delta_y * 4, CROSS_Y_RANGE);
     }
     save_settings_request = true;
     show_cross = false;
