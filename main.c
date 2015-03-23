@@ -90,8 +90,8 @@ unsigned char gauge_ram_bits[12];
 #define CROSS_Y_DEFAULT (162+9)
 #define CROSS_X_DEFAULT (LEFT_OFFSET + 175)
 
-#define CROSS_X_RANGE 85
-#define CROSS_Y_RANGE 85
+#define CROSS_X_RANGE 79
+#define CROSS_Y_RANGE 79
 
 uint16_t cross_y = CROSS_Y_DEFAULT; /* +/- 85 */
 uint16_t cross_x = CROSS_X_DEFAULT;
