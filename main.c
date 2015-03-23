@@ -736,10 +736,6 @@ void control(void) {
 
                 autorepeat = menu == 2;
                 buttons();
-                update_status();
-                if (show_gauge) {
-                    update_gauge();
-                }
 
 }
 
@@ -802,6 +798,14 @@ void EXTI4_15_IRQHandler(void)
 void draw_nothing(void) {
     if (row == 5) {
         control();
+    }
+    if (row == 6) {
+        update_status();
+        if (show_gauge) {
+            update_gauge();
+        }
+    }
+    if (row == 7) {
         #if 1
         if (show_coords) {
             int16_t p_w = cross_x - CROSS_X_DEFAULT;
