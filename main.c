@@ -354,6 +354,7 @@ static void prev_cross(int button);
 static void switch_cross(int button);
 static void switch_inversion(int button);
 static void switch_menu(int button);
+static void switch_move_menu(int button);
 static void switch_zoom(int button);
 static void enter_gauge(int button);
 static void change_gauge(int button);
@@ -406,7 +407,7 @@ menu_t gauge_menu = {
 };
 
 menu_t move_cross_menu = {
-    {NULL, cross_xy, cross_xy, finish_move, cross_xy, cross_xy, switch_menu}
+    {NULL, cross_xy, cross_xy, finish_move, cross_xy, cross_xy, switch_move_menu}
 };
 
 menu_t calibrate_cross_menu = {
@@ -456,6 +457,11 @@ static void select_confirm(int button) {
 
 void send1_packet(void);
 void send2_packet(void);
+
+static void switch_move_menu(int button) {
+    finish_move(button);
+    switch_menu(button);
+}
 
 static void switch_menu(int button) {
     if (menu) {
