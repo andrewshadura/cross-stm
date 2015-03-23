@@ -322,10 +322,30 @@ void update_status(void) {
     }
 }
 
+const char f100[] = {1, CHARGEN_NUMBERS + 1, CHARGEN_NUMBERS + 0, CHARGEN_NUMBERS + 0, 2, 1, CHARGEN_NUMBERS + 5, CHARGEN_NUMBERS + 2};
+const char f75[] = {1, CHARGEN_NUMBERS + 7, CHARGEN_NUMBERS + 5, 2, 1, CHARGEN_NUMBERS + 4, CHARGEN_NUMBERS + 0};
+
 static void update_gauge(void) {
+    int i;
+
+    if (current_item == 0) {
+        for (i = 0; i < sizeof(gauge_ram_bits); i++) {
+            gauge_ram_bits[i] = 0;
+            if (cross_type == cross_type_big) {
+                if (i < sizeof(f100)) {
+                    gauge_ram_bits[i] = f100[i];
+                }
+            } else if (cross_type == cross_type_small) {
+                if (i < sizeof(f75)) {
+                    gauge_ram_bits[i] = f75[i];
+                }
+            }
+        }
+        return;
+    }
+
     int last_pos = (gauge_value + 1) / 2;
     int last_part = (gauge_value + 1) % 2;
-    int i;
 
     for (i = 0; i < sizeof(gauge_ram_bits); i++) {
         if (i < last_pos) {
@@ -518,12 +538,14 @@ static void switch_cross(int button) {
         case 1:
             menu++;
             show_cross = true;
+            show_gauge = true;
             break;
         case 2:
             menu--;
             settings.users[current_input].cross_type = cross_type;
             save_settings_request = true;
             show_cross = false;
+            show_gauge = false;
             break;
     }
 }
@@ -825,26 +847,6 @@ void draw_nothing(void) {
         #if 1
         if (show_coords) {
             int16_t p_w = cross_x - CROSS_X_DEFAULT;
-            #define F_START 4
-            if (cross_type == cross_type_big) {
-                int p = F_START;
-                statusbar_ram_bits[p++] = 1;
-                statusbar_ram_bits[p++] = CHARGEN_NUMBERS + 1;
-                statusbar_ram_bits[p++] = CHARGEN_NUMBERS + 0;
-                statusbar_ram_bits[p++] = CHARGEN_NUMBERS + 0;
-                statusbar_ram_bits[p++] = 2;
-                statusbar_ram_bits[p++] = CHARGEN_NUMBERS + 5;
-                statusbar_ram_bits[p++] = CHARGEN_NUMBERS + 2;
-            }
-            if (cross_type == cross_type_small) {
-                int p = F_START;
-                statusbar_ram_bits[p++] = 1;
-                statusbar_ram_bits[p++] = CHARGEN_NUMBERS + 7;
-                statusbar_ram_bits[p++] = CHARGEN_NUMBERS + 5;
-                statusbar_ram_bits[p++] = 2;
-                statusbar_ram_bits[p++] = CHARGEN_NUMBERS + 4;
-                statusbar_ram_bits[p++] = CHARGEN_NUMBERS + 0;
-            }
 
             #define NUMBERS_START 14
             statusbar_ram_bits[NUMBERS_START + 0] = 0;
