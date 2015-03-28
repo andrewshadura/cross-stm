@@ -560,6 +560,7 @@ static void switch_cross(int button) {
     switch (menu) {
         case 1:
             menu++;
+            show_saving = 0;
             show_cross = true;
             show_gauge = true;
             break;
@@ -576,6 +577,7 @@ static void switch_cross(int button) {
 
 static void enter_gauge(int button) {
     menu++;
+    show_saving = 0;
     show_gauge = true;
     cross_x = CROSS_X_DEFAULT;
     cross_y = CROSS_Y_DEFAULT;
