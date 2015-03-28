@@ -81,6 +81,7 @@ uint16_t adccal = 0;
 
 unsigned char statusbar_ram_bits[statusbar_width / 8];
 unsigned char gauge_ram_bits[12];
+char gauge_select = 0;
 
 #define STATUSBAR_START (25+9)
 #define MAINWIN_START (120+9)
@@ -159,6 +160,9 @@ bool show_cross = true;
 bool show_gauge = false;
 bool show_menu = false;
 bool show_coords = false;
+char show_saving = 0;
+
+#define SAVING_DELAY 3
 
 bool autorepeat = false;
 
@@ -330,6 +334,20 @@ const char f75[] = {1, CHARGEN_NUMBERS + 7, CHARGEN_NUMBERS + 5, 2, 1, CHARGEN_N
 static void update_gauge(void) {
     int i;
 
+    if (show_saving) {
+        int j = 3;
+
+        gauge_ram_bits[0] = 0;
+        for (i = 1; i < sizeof(gauge_ram_bits); i++) {
+            if (j > 8) {
+                gauge_ram_bits[i] = 0;
+            } else {
+                gauge_ram_bits[i] = j++;
+            }
+        }
+        return;
+    }
+
     if (current_item == 0) {
         for (i = 0; i < sizeof(gauge_ram_bits); i++) {
             gauge_ram_bits[i] = 0;
@@ -482,6 +500,9 @@ void send2_packet(void);
 
 static void switch_move_menu(int button) {
     finish_move(button);
+    show_cross = false;
+    show_coords = false;
+    menu--;
     switch_menu(button);
 }
 
@@ -546,6 +567,7 @@ static void switch_cross(int button) {
             menu--;
             settings.users[current_input].cross_type = cross_type;
             save_settings_request = true;
+            show_saving = SAVING_DELAY;
             show_cross = false;
             show_gauge = false;
             break;
@@ -628,6 +650,7 @@ static void finish_gauge(int button) {
     *(gauges[current_item].var) = gauge_value;
     gauges[current_item].finish_fn(gauge_value);
     save_settings_request = true;
+    show_saving = SAVING_DELAY;
 }
 
 static void set_move_cross(int button) {
@@ -685,9 +708,7 @@ static void finish_move(int button) {
     }
     save_settings_request = true;
     force_save_settings = true;
-    show_cross = false;
-    show_coords = false;
-    menu--;
+    show_saving = SAVING_DELAY;
 }
 
 static void calibrate_xy(int button) {
@@ -1046,6 +1067,13 @@ void draw_status(void) {
                     } else if ((battery_low > 0) && (battery_level > BATTERY_LOW_LEVEL)) {
                         battery_low--;
                     }
+
+                    if (show_gauge && show_saving) {
+                        if (!(--show_saving)) {
+                            gauge_select = 0;
+                            show_gauge = false;
+                        }
+                    }
                 }
                 if (batteryblink && (battery_low == 80)) {
                     SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[i]]));
@@ -1129,7 +1157,7 @@ void draw_gauge(void) {
                 Delay(LEFT_OFFSET + 180);
 
                 int i;
-                const char * ptr = &statusbar_bits[row - GAUGE_START][0];
+                const char * ptr = &statusbar_bits[gauge_select * 16 + row - GAUGE_START - 1][0];
 
                 //SPI_SendData8(SPI1, ~(ptr[gauge_ram_bits[0]]));
                 //SPI_SendData8(SPI1, ~(ptr[gauge_ram_bits[1]]));
@@ -1248,6 +1276,10 @@ static void save_settings(void) {
                 saving = false;
                 save_settings_request = false;
                 force_save_settings = false;
+                if (show_saving) {
+                    show_gauge = true;
+                    gauge_select = 1;
+                }
             }
         }
     }
