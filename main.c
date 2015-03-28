@@ -97,6 +97,7 @@ uint16_t cross_y = CROSS_Y_DEFAULT; /* +/- 85 */
 uint16_t cross_x = CROSS_X_DEFAULT;
 
 uint16_t start_inv = MAINWIN_START + 3, end_inv = MAINWIN_START + 14;
+uint16_t real_start_inv = MAINWIN_START + 3, real_end_inv = MAINWIN_START + 14;
 
 int battery_low = 0;
 
@@ -472,8 +473,8 @@ static void select_confirm(int button) {
     show_menu = false;
     current_menu_height = menu_height;
     current_menu = &main_menu;
-    start_inv = MAINWIN_START + 3 + current_item * 16;
-    end_inv = MAINWIN_START + 14 + current_item * 16;
+    real_start_inv = start_inv = MAINWIN_START + 3 + current_item * 16;
+    real_end_inv = end_inv = MAINWIN_START + 14 + current_item * 16;
 }
 
 void send1_packet(void);
@@ -936,6 +937,16 @@ void draw_nothing(void) {
             }
             if (once) {
                 once = false;
+                if (start_inv != real_start_inv) {
+                    int16_t d = (start_inv - real_start_inv) / 5;
+                    if (d != 0) {
+                        real_start_inv += (d * 2);
+                        real_end_inv += (d * 2);
+                    } else {
+                        real_start_inv = start_inv;
+                        real_end_inv = end_inv;
+                    }
+                }
                 if (!configuring_oled) {
                     if (set_dbrightness_request || set_dcontrast_request) {
                         set_dbrightness_request = false;
@@ -1060,7 +1071,7 @@ void draw_menu(void) {
                 } else {
                     ptr = &helper_bits[row - MAINWIN_START][0];
                 }
-                bool notselected = ((row < start_inv) | (row > end_inv));
+                bool notselected = ((row < real_start_inv) | (row > real_end_inv));
                 if (notselected) {
                     SPI_SendData8(SPI1, ~(*(ptr++)));
                     SPI_SendData8(SPI1, ~(*(ptr++)));
@@ -1187,8 +1198,8 @@ static void reset_confirm(int button) {
     show_menu = true;
     current_menu_height = 2 * 16;
     current_confirm = 1;
-    start_inv = MAINWIN_START + 3 + current_confirm * 16;
-    end_inv = MAINWIN_START + 14 + current_confirm * 16;
+    real_start_inv = start_inv = MAINWIN_START + 3 + current_confirm * 16;
+    real_end_inv = end_inv = MAINWIN_START + 14 + current_confirm * 16;
 }
 
 static void reset_settings(int button) {
