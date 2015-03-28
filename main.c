@@ -163,6 +163,7 @@ bool autorepeat = false;
 
 bool reload_settings = true;
 volatile bool save_settings_request = false;
+volatile bool force_save_settings = false;
 volatile bool set_dbrightness_request = false;
 volatile bool set_dcontrast_request = false;
 volatile bool set_polarity_request = false;
@@ -682,6 +683,7 @@ static void finish_move(int button) {
         settings.users[current_input].coords[2].y = clamp(CROSS_Y_DEFAULT, delta_y * 4, CROSS_Y_RANGE);
     }
     save_settings_request = true;
+    force_save_settings = true;
     show_cross = false;
     show_coords = false;
     menu--;
@@ -926,7 +928,7 @@ void draw_nothing(void) {
                     current_fn = draw_gauge;
                 }
             }
-            if (save_settings_request && (menu == 0)) {
+            if (save_settings_request && ((menu == 0) || force_save_settings)) {
                 save_settings();
             } else {
                 uint16_t vrefint = *((__IO uint16_t*) 0x1ffff7ba);
@@ -1234,6 +1236,7 @@ static void save_settings(void) {
             } else {
                 saving = false;
                 save_settings_request = false;
+                force_save_settings = false;
             }
         }
     }
