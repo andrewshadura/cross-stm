@@ -11,4 +11,7 @@ const unsigned char menu_widths[] = {
     5
 };
 
+#define SAVING_MIN 9
+#define SAVING_MAX 17
+
 #include "helper-ru.h"

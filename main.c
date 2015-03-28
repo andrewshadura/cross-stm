@@ -331,53 +331,6 @@ void update_status(void) {
 const char f100[] = {1, CHARGEN_NUMBERS + 1, CHARGEN_NUMBERS + 0, CHARGEN_NUMBERS + 0, 2, 1, CHARGEN_NUMBERS + 5, CHARGEN_NUMBERS + 2};
 const char f75[] = {1, CHARGEN_NUMBERS + 7, CHARGEN_NUMBERS + 5, 2, 1, CHARGEN_NUMBERS + 4, CHARGEN_NUMBERS + 0};
 
-static void update_gauge(void) {
-    int i;
-
-    if (show_saving) {
-        int j = 3;
-
-        gauge_ram_bits[0] = 0;
-        for (i = 1; i < sizeof(gauge_ram_bits); i++) {
-            if (j > 8) {
-                gauge_ram_bits[i] = 0;
-            } else {
-                gauge_ram_bits[i] = j++;
-            }
-        }
-        return;
-    }
-
-    if (current_item == 0) {
-        for (i = 0; i < sizeof(gauge_ram_bits); i++) {
-            gauge_ram_bits[i] = 0;
-            if (cross_type == cross_type_big) {
-                if (i < sizeof(f100)) {
-                    gauge_ram_bits[i] = f100[i];
-                }
-            } else if (cross_type == cross_type_small) {
-                if (i < sizeof(f75)) {
-                    gauge_ram_bits[i] = f75[i];
-                }
-            }
-        }
-        return;
-    }
-
-    int last_pos = (gauge_value + 1) / 2;
-    int last_part = (gauge_value + 1) % 2;
-
-    for (i = 0; i < sizeof(gauge_ram_bits); i++) {
-        if (i < last_pos) {
-            gauge_ram_bits[i] = CHARGEN_PROGRESS + 2;
-        } else if (i == last_pos) {
-            gauge_ram_bits[i] = CHARGEN_PROGRESS + last_part;
-        } else {
-            gauge_ram_bits[i] = CHARGEN_PROGRESS;
-        }
-    }
-}
-
 struct gauge_t {
     uint8_t * var;
     fn1_t update_fn;
@@ -459,6 +412,53 @@ menu_t confirm_menu = {
 };
 
 menu_t * current_menu = &main_menu;
+
+static void update_gauge(void) {
+    int i;
+
+    if (show_saving) {
+        int j = SAVING_MIN;
+
+        gauge_ram_bits[0] = 0;
+        for (i = 1; i < sizeof(gauge_ram_bits); i++) {
+            if (j > SAVING_MAX) {
+                gauge_ram_bits[i] = 0;
+            } else {
+                gauge_ram_bits[i] = j++;
+            }
+        }
+        return;
+    }
+
+    if (current_item == 0) {
+        for (i = 0; i < sizeof(gauge_ram_bits); i++) {
+            gauge_ram_bits[i] = 0;
+            if (cross_type == cross_type_big) {
+                if (i < sizeof(f100)) {
+                    gauge_ram_bits[i] = f100[i];
+                }
+            } else if (cross_type == cross_type_small) {
+                if (i < sizeof(f75)) {
+                    gauge_ram_bits[i] = f75[i];
+                }
+            }
+        }
+        return;
+    }
+
+    int last_pos = (gauge_value + 1) / 2;
+    int last_part = (gauge_value + 1) % 2;
+
+    for (i = 0; i < sizeof(gauge_ram_bits); i++) {
+        if (i < last_pos) {
+            gauge_ram_bits[i] = CHARGEN_PROGRESS + 2;
+        } else if (i == last_pos) {
+            gauge_ram_bits[i] = CHARGEN_PROGRESS + last_part;
+        } else {
+            gauge_ram_bits[i] = CHARGEN_PROGRESS;
+        }
+    }
+}
 
 static void next(int button) {
     current_item = (current_item + 1) % current_menu_length;
@@ -1167,7 +1167,7 @@ void draw_gauge(void) {
                 }
                 SPI_SendData8(SPI1, 0xff);
 
-    if (row >= (GAUGE_START + 15)) {
+    if (row >= (GAUGE_START + 16)) {
         current_fn = draw_nothing;
     }
 }
