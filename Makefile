@@ -53,7 +53,7 @@ build: $(TARGETS) $(LISTINGS)
 .s.o:
 	$(COMPILE.c) $(OUTPUT_OPTION) $<
 
-$(PROG)-%.elf: $(SRC:%.c=%)-%.o $(patsubst %.s,%.o,$(LIB:.c=.o)) $(patsubst %.xbm,%.o,$(wildcard cross-*.xbm)) menu-%.o statusbar.o helper-%.o
+$(PROG)-%.elf: $(SRC:%.c=%)-%.o $(patsubst %.s,%.o,$(LIB:.c=.o)) $(patsubst %.xbm,%.o,$(wildcard cross-*.xbm)) menu-%.o statusbar.o helper-%.o flash_async.o
 	$(LINK.c) $^ $(LDLIBS) -o $@
 
 $(PROG)-%.hex: $(PROG)-%.elf

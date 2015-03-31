@@ -11,6 +11,7 @@
 #include "stm32f0xx_spi.h"
 #include "stm32f0xx_tim.h"
 #include "stm32f0xx_usart.h"
+#include "flash_async.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -711,6 +712,7 @@ static void finish_move(int button) {
     save_settings_request = true;
     force_save_settings = true;
     show_saving = SAVING_DELAY;
+    show_gauge = false;
 }
 
 static void calibrate_xy(int button) {
@@ -1248,6 +1250,13 @@ static void load_settings(void) {
     }
 }
 
+enum {
+    FLASH_Idle = 0,
+    FLASH_Unlocked,
+    FLASH_Erasing,
+    FLASH_Erased
+};
+
 static void save_settings(void) {
 #if 0
     FLASH_Unlock();
@@ -1260,15 +1269,44 @@ static void save_settings(void) {
     }
 #endif
     static bool saving = false;
+    static char state = FLASH_Idle;
 
     {
         static int i, words;
         if (!saving) {
-            FLASH_Unlock();
-            FLASH_ErasePage((uint32_t)&settings0);
-            i = 0;
-            words = (sizeof(settings) + 3) / 4;
-            saving = true;
+            switch (state) {
+                case FLASH_Idle: {
+                    FLASH_Unlock();
+                    state = FLASH_Unlocked;
+                    break;
+                }
+                case FLASH_Unlocked: {
+                    if (FLASH_GetStatus() != FLASH_BUSY) {
+                        SPI_Cmd(SPI1, DISABLE);
+                        FLASH_ErasePage_AsyncStart((uint32_t)&settings0);
+                        state = FLASH_Erasing;
+                    }
+                    break;
+                }
+                case FLASH_Erasing: {
+                    if (FLASH_GetStatus() != FLASH_BUSY) {
+                        FLASH_ErasePage_AsyncStop();
+                        state = FLASH_Erased;
+                    }
+                    break;
+                }
+                case FLASH_Erased: {
+                    if (FLASH_GetStatus() != FLASH_BUSY) {
+                        state = FLASH_Unlocked;
+                        i = 0;
+                        words = (sizeof(settings) + 3) / 4;
+                        saving = true;
+                        SPI_Cmd(SPI1, ENABLE);
+                    }
+                    break;
+                }
+                //
+            };
         } else {
             if (i < words) {
                 FLASH_ProgramWord(((uint32_t)&(((uint32_t *)&settings0)[i])),
