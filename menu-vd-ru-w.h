@@ -14,4 +14,7 @@ const unsigned char menu_widths[] = {
 #define SAVING_MIN 9
 #define SAVING_MAX 17
 
+#undef CROSS_X_DEFAULT
+#define CROSS_X_DEFAULT (LEFT_OFFSET + 175)
+
 #include "helper-ru.h"
