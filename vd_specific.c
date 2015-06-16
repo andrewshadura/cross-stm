@@ -31,6 +31,9 @@ static void switch_polarity(int button) {
     set_polarity_request = true;
 }
 
+static void switch_palette(int button) {
+}
+
 static void switch_zoom(int button) {
     /* day/night mode */
     calibration_button = GPIO_Pin_4;

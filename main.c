@@ -54,6 +54,7 @@ struct settings_t {
     uint32_t invalid;
     uint8_t brightness;
     uint8_t contrast;
+    uint8_t palette;
 };
 
 struct settings_t __attribute__((section (".flash.page30"))) settings0;/* = {
@@ -174,11 +175,13 @@ volatile bool set_dbrightness_request = false;
 volatile bool set_dcontrast_request = false;
 volatile bool set_polarity_request = false;
 volatile bool set_zoom_request = false;
+volatile bool set_palette_request = false;
 volatile uint8_t calibration_request = 0;
 volatile uint8_t calibration_button_request = 0;
 volatile uint8_t calibration_button = 0;
 #define CALIBRATE 17
 
+uint8_t initial_camera_delay = 50;
 bool configuring_camera = false;
 bool configuring_oled = false;
 
@@ -360,6 +363,7 @@ static void set_move_cross(int button);
 static void cross_xy(int button);
 static void finish_move(int button);
 static void switch_polarity(int button);
+static void switch_palette(int button);
 static void calibrate_xy(int button);
 static void calibrate_set(int button);
 static void calibrate_menu(int button);
@@ -979,7 +983,9 @@ void draw_nothing(void) {
                         send2_packet();
                     }
                 }
-                if (!configuring_camera) {
+                if (initial_camera_delay) {
+                    initial_camera_delay--;
+                } else if (!configuring_camera) {
                     if (set_polarity_request) {
                         set_polarity_request = false;
                         Tx1Buffer[1] = 0x03;
@@ -991,6 +997,12 @@ void draw_nothing(void) {
                         Tx1Buffer[1] = 0x03;
                         Tx1Buffer[3] = 0x02;
                         Tx1Buffer[4] = current_zoom * 2;
+                        send1_packet();
+                    } else if (set_palette_request) {
+                        set_palette_request = false;
+                        Tx1Buffer[1] = 0x03;
+                        Tx1Buffer[3] = 0x11;
+                        Tx1Buffer[4] = settings.palette;
                         send1_packet();
                     } else if (calibration_button_request) {
                         if (frameno == 0) {
@@ -1222,6 +1234,7 @@ static void init_settings(void) {
     settings.invalid = 0x12345678;
     settings.brightness = MAX_GAUGE_VALUE / 2;
     settings.contrast = MAX_GAUGE_VALUE / 2;
+    settings.palette = 8;
 }
 
 static void reset_confirm(int button) {
@@ -1239,7 +1252,9 @@ static void reset_settings(int button) {
     update_dbrightness(settings.brightness);
     update_dcontrast(settings.contrast);
     reload_settings = true;
+    set_palette_request = true;
     save_settings_request = true;
+    force_save_settings = true;
 }
 
 static void load_settings(void) {
@@ -1696,6 +1711,7 @@ int main(void)
 
     set_zoom_request = true;
     set_polarity_request = true;
+    set_palette_request = true;
 
     current_fn = draw_nothing;
 

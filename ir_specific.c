@@ -8,6 +8,7 @@ menu_t main_menu = {
     {NULL, prev, next, enter_gauge,    NULL, NULL, switch_menu},
     {NULL, prev, next, set_move_cross, NULL, NULL, switch_menu},
     {NULL, prev, next, calibrate_enter,NULL, NULL, switch_menu},
+    {NULL, prev, next, switch_palette, NULL, NULL, switch_menu},
     {NULL, prev, next, reset_confirm, NULL, NULL, switch_menu}
 };
 
@@ -30,6 +31,13 @@ static void camera_contrast(int button) {
 static void switch_polarity(int button) {
     polarity = !polarity;
     set_polarity_request = true;
+}
+
+static void switch_palette(int button) {
+    settings.palette = (settings.palette + 1) % 8;
+    set_palette_request = true;
+    save_settings_request = true;
+    show_saving = SAVING_DELAY;
 }
 
 static void switch_zoom(int button) {
