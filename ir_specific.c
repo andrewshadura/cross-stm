@@ -41,7 +41,7 @@ static void switch_palette(int button) {
 }
 
 static void switch_zoom(int button) {
-    if (current_zoom == 2) {
+    if (current_zoom == MAX_ZOOMS - 1) {
         current_zoom = 0;
     } else {
         current_zoom++;

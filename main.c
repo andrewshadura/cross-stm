@@ -32,8 +32,10 @@ struct coords_t {
     uint16_t y;
 };
 
+#define MAX_ZOOMS 4
+
 struct setting_t {
-    struct coords_t coords[3];
+    struct coords_t coords[MAX_ZOOMS];
     uint8_t brightness;
     uint8_t cross_type;
 };
@@ -309,6 +311,10 @@ void update_status(void) {
             break;
         case 2:
             statusbar_ram_bits[14] = 6;
+            statusbar_ram_bits[15] = 7;
+            break;
+        case 3:
+            statusbar_ram_bits[14] = CHARGEN_NUMBERS + 8;
             statusbar_ram_bits[15] = 7;
             break;
         default:
@@ -712,6 +718,8 @@ static void finish_move(int button) {
         settings.users[current_input].coords[1].y = clamp(CROSS_Y_DEFAULT, delta_y * 2, CROSS_Y_RANGE);
         settings.users[current_input].coords[2].x = clamp(CROSS_X_DEFAULT, delta_x * 4, CROSS_X_RANGE);
         settings.users[current_input].coords[2].y = clamp(CROSS_Y_DEFAULT, delta_y * 4, CROSS_Y_RANGE);
+        settings.users[current_input].coords[3].x = clamp(CROSS_X_DEFAULT, delta_x * 8, CROSS_X_RANGE);
+        settings.users[current_input].coords[3].y = clamp(CROSS_Y_DEFAULT, delta_y * 8, CROSS_Y_RANGE);
     }
     save_settings_request = true;
     force_save_settings = true;
@@ -996,7 +1004,7 @@ void draw_nothing(void) {
                         set_zoom_request = false;
                         Tx1Buffer[1] = 0x03;
                         Tx1Buffer[3] = 0x02;
-                        Tx1Buffer[4] = current_zoom * 2;
+                        Tx1Buffer[4] = current_zoom ? (1 << current_zoom) : 0;
                         send1_packet();
                     } else if (set_palette_request) {
                         set_palette_request = false;
@@ -1222,7 +1230,7 @@ static void init_settings(void) {
     int i;
     for (i = 0; i < MAX_USERS; i++) {
         int j;
-        for (j = 0; j < 3; j++) {
+        for (j = 0; j < MAX_ZOOMS; j++) {
             settings.users[i].coords[j].x = CROSS_X_DEFAULT;
             settings.users[i].coords[j].y = CROSS_Y_DEFAULT;
         }
