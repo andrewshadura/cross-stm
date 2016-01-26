@@ -189,6 +189,15 @@ volatile uint8_t calibration_button_request = 0;
 volatile uint8_t calibration_button = 0;
 #define CALIBRATE 17
 
+#define CALIBRATION_BUTTONS_PORT GPIOB
+#define CBUTGPIO CALIBRATION_BUTTONS_PORT
+
+#define CALIBRATION_BUTTON_LEFT  GPIO_Pin_7
+#define CALIBRATION_BUTTON_RIGHT GPIO_Pin_4
+#define CALIBRATION_BUTTON_UP    GPIO_Pin_5
+#define CALIBRATION_BUTTON_DOWN  GPIO_Pin_6
+#define CALIBRATION_BUTTONS_ALL  (CALIBRATION_BUTTON_LEFT | CALIBRATION_BUTTON_RIGHT | CALIBRATION_BUTTON_UP | CALIBRATION_BUTTON_DOWN)
+
 uint8_t initial_camera_delay = 50;
 bool configuring_camera = false;
 bool configuring_oled = false;
@@ -786,10 +795,10 @@ static void finish_move(int button) {
 static void calibrate_xy(int button) {
     switch (button) {
         case button_left:
-            calibration_button = GPIO_Pin_7;
+            calibration_button = CALIBRATION_BUTTON_LEFT;
             break;
         case button_right:
-            calibration_button = GPIO_Pin_4;
+            calibration_button = CALIBRATION_BUTTON_RIGHT;
             if (calibrate_mode == 2) {
                 calibrate_mode = 0;
             }
@@ -799,11 +808,11 @@ static void calibrate_xy(int button) {
             }
             break;
         case button_up:
-            calibration_button = GPIO_Pin_5;
+            calibration_button = CALIBRATION_BUTTON_UP;
             break;
         case button_down:
             calibrate_mode = (calibrate_mode + 1) & 3;
-            calibration_button = GPIO_Pin_6;
+            calibration_button = CALIBRATION_BUTTON_DOWN;
             break;
     }
     calibration_button_request = 2;
@@ -1071,24 +1080,24 @@ void draw_nothing(void) {
                     } else if (calibration_button_request) {
                         if (frameno == 0) {
                             if ((calibration_button_request & 1) == 0) {
-                                GPIOB->ODR &= (~calibration_button);
+                                CBUTGPIO->ODR &= (~calibration_button);
                             } else {
-                                GPIOB->ODR |= calibration_button;
+                                CBUTGPIO->ODR |= calibration_button;
                             }
                             calibration_button_request--;
                         }
                     } else if (calibration_request) {
                         if (frameno == 0) {
-                            GPIOB->ODR &= (~(GPIO_Pin_4 | GPIO_Pin_7));
+                            CBUTGPIO->ODR &= (~(CALIBRATION_BUTTON_RIGHT | CALIBRATION_BUTTON_LEFT));
                             if ((calibration_request & 1) == 0) {
-                                GPIOB->ODR &= (~GPIO_Pin_6);
+                                CBUTGPIO->ODR &= (~CALIBRATION_BUTTON_DOWN);
                             } else {
-                                GPIOB->ODR |= GPIO_Pin_6;
+                                CBUTGPIO->ODR |= CALIBRATION_BUTTON_DOWN;
                             }
                             //send1_packet();
                             calibration_request--;
                             if (calibration_request == 0) {
-                                GPIOB->ODR |= (GPIO_Pin_4 | GPIO_Pin_5 | GPIO_Pin_6 | GPIO_Pin_7);
+                                CBUTGPIO->ODR |= (CALIBRATION_BUTTONS_ALL);
                             }
                         }
 
@@ -1499,21 +1508,21 @@ int main(void)
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_Level_3;
     //GPIO_Init(GPIOB, &GPIO_InitStructure);
 
-    GPIOB->ODR |= GPIO_Pin_4;
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4;
-    GPIO_Init(GPIOB, &GPIO_InitStructure);
+    CBUTGPIO->ODR |= CALIBRATION_BUTTON_RIGHT;
+    GPIO_InitStructure.GPIO_Pin = CALIBRATION_BUTTON_RIGHT;
+    GPIO_Init(CBUTGPIO, &GPIO_InitStructure);
 
-    GPIOB->ODR |= GPIO_Pin_5;
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5;
-    GPIO_Init(GPIOB, &GPIO_InitStructure);
+    CBUTGPIO->ODR |= CALIBRATION_BUTTON_LEFT;
+    GPIO_InitStructure.GPIO_Pin = CALIBRATION_BUTTON_LEFT;
+    GPIO_Init(CBUTGPIO, &GPIO_InitStructure);
 
-    GPIOB->ODR |= GPIO_Pin_6;
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6;
-    GPIO_Init(GPIOB, &GPIO_InitStructure);
+    CBUTGPIO->ODR |= CALIBRATION_BUTTON_UP;
+    GPIO_InitStructure.GPIO_Pin = CALIBRATION_BUTTON_UP;
+    GPIO_Init(CBUTGPIO, &GPIO_InitStructure);
 
-    GPIOB->ODR |= GPIO_Pin_7;
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_7;
-    GPIO_Init(GPIOB, &GPIO_InitStructure);
+    CBUTGPIO->ODR |= CALIBRATION_BUTTON_DOWN;
+    GPIO_InitStructure.GPIO_Pin = CALIBRATION_BUTTON_DOWN;
+    GPIO_Init(CBUTGPIO, &GPIO_InitStructure);
 
     /* Enable GPIOA clock */
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
