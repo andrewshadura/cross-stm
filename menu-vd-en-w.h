@@ -1,6 +1,6 @@
 #include "menu-vd-en.h"
 
-const unsigned char menu_widths[] = {
+const unsigned char menu_en_widths[] = {
     11,
     12,
     //13,

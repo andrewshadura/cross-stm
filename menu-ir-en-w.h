@@ -1,6 +1,6 @@
 #include "menu-ir-en.h"
 
-const unsigned char menu_widths[] = {
+const unsigned char menu_en_widths[] = {
     11,
     12,
     //13,
@@ -9,10 +9,11 @@ const unsigned char menu_widths[] = {
     23,
     11,
     8,
+    8,
     5
 };
 
-#define SAVING_MIN 3
-#define SAVING_MAX 8
+#define SAVING_EN_MIN 3
+#define SAVING_EN_MAX 8
 
 #include "helper-en.h"

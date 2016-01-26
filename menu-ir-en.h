@@ -1,3 +1,3 @@
-#define menu_width 120
-#define menu_height 128
-extern const char menu_bits[][menu_width / 8];
+#define menu_en_width 120
+#define menu_en_height 144
+extern const char menu_en_bits[][menu_en_width / 8];

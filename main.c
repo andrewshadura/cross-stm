@@ -57,6 +57,7 @@ struct settings_t {
     uint8_t brightness;
     uint8_t contrast;
     uint8_t palette;
+    uint8_t language;
 };
 
 struct settings_t __attribute__((section (".flash.page30"))) settings0;/* = {
@@ -156,6 +157,11 @@ const unsigned char cross_height[] = {
 int button = button_none;
 
 int cross_type = cross_type_big;
+
+enum language_t {
+    LANG_EN = 0,
+    LANG_RU = 1
+};
 
 bool batteryblink = true;
 volatile bool send = false;
@@ -376,6 +382,7 @@ static void calibrate_menu(int button);
 static void calibrate_enter(int button);
 static void reset_confirm(int button);
 static void reset_settings(int button);
+static void switch_lang(int button);
 
 #define STEPS 5
 #define STEPWIDTH (1024/STEPS)
@@ -397,6 +404,55 @@ volatile uint16_t buttons_level;
 #define LANG_SPECIFIC LANGISE(CONFIG,LANG)
 
 #include CONFIG_SPECIFIC
+
+int menu_width = menu_en_width;
+int menu_height = menu_en_height;
+
+const unsigned char * menu_widths = menu_en_widths;
+
+const char (* menu_bits)[menu_en_width / 8] = menu_en_bits;
+
+int helper_width = helper_en_width;
+int helper_height = helper_en_height;
+
+const char (* helper_bits)[helper_en_width / 8] = helper_en_bits;
+
+int saving_min = SAVING_EN_MIN;
+int saving_max = SAVING_EN_MAX;
+
+void set_language(void) {
+    switch (settings.language) {
+        case LANG_EN: {
+            menu_bits = menu_en_bits;
+            helper_bits= helper_en_bits;
+            menu_widths = menu_en_widths;
+            menu_width = menu_en_width;
+            menu_height = menu_en_height;
+            helper_width = helper_en_width;
+            helper_height = helper_en_height;
+            saving_min = SAVING_EN_MIN;
+            saving_max = SAVING_EN_MAX;
+        } break;
+        case LANG_RU: {
+            menu_bits = menu_ru_bits;
+            helper_bits= helper_ru_bits;
+            menu_widths = menu_ru_widths;
+            menu_width = menu_ru_width;
+            menu_height = menu_ru_height;
+            helper_width = helper_ru_width;
+            helper_height = helper_ru_height;
+            saving_min = SAVING_RU_MIN;
+            saving_max = SAVING_RU_MAX;
+        } break;
+    }
+}
+
+static void switch_lang(int button) {
+    settings.language = !settings.language;
+    set_language();
+    save_settings_request = true;
+    force_save_settings = true;
+}
 
 menu_t off_menu = {
     {NULL, switch_zoom, switch_inversion, NULL, camera_contrast, camera_contrast, switch_menu}
@@ -428,11 +484,11 @@ static void update_gauge(void) {
     int i;
 
     if (show_saving) {
-        int j = SAVING_MIN;
+        int j = saving_min;
 
         gauge_ram_bits[0] = 0;
         for (i = 1; i < sizeof(gauge_ram_bits); i++) {
-            if (j > SAVING_MAX) {
+            if (j > saving_max) {
                 gauge_ram_bits[i] = 0;
             } else {
                 gauge_ram_bits[i] = j++;
@@ -1243,6 +1299,7 @@ static void init_settings(void) {
     settings.brightness = MAX_GAUGE_VALUE / 2;
     settings.contrast = MAX_GAUGE_VALUE / 2;
     settings.palette = 8;
+    settings.language = LANG_EN;
 }
 
 static void reset_confirm(int button) {
@@ -1259,6 +1316,7 @@ static void reset_settings(int button) {
     init_settings();
     update_dbrightness(settings.brightness);
     update_dcontrast(settings.contrast);
+    set_language();
     reload_settings = true;
     set_palette_request = true;
     save_settings_request = true;
@@ -1715,6 +1773,7 @@ int main(void)
     update_brightness(brightness);
     update_dbrightness(settings.brightness);
     update_dcontrast(settings.contrast);
+    set_language();
     send2_packet();
 
     set_zoom_request = true;

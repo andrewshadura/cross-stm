@@ -40,9 +40,12 @@ SRC ?= main.c
 
 LDFLAGS ?= -mcpu=$(CPU_FAMILY) -mthumb $(DEBUG) -nostartfiles -Wl,-Map=$(PROG).map -Wl,--gc-sections -Wl,-T./link.ld
 
-LANGUAGES ?= $(patsubst menu-%.xcf,%,$(wildcard menu-*.xcf))
+ALLCONFIGS ?= $(patsubst menu-%.xcf,%,$(wildcard menu-*.xcf))
 
-TARGETS = $(LANGUAGES:%=$(PROG)-%.hex)
+CONFIGS = $(sort $(foreach config,$(ALLCONFIGS),$(word 1,$(subst -, ,$(config)))))
+LANGUAGES = $(sort $(foreach config,$(ALLCONFIGS),$(word 2,$(subst -, ,$(config)))))
+
+TARGETS = $(CONFIGS:%=$(PROG)-%.hex)
 
 LISTINGS = $(TARGETS:.hex=.lst)
 
@@ -50,10 +53,13 @@ build: $(TARGETS) $(LISTINGS)
 
 .SUFFIXES: .xbm
 
+e:
+	echo $(LANGUAGES) → $(CONFIGS), $(TARGETS)
+
 .s.o:
 	$(COMPILE.c) $(OUTPUT_OPTION) $<
 
-$(PROG)-%.elf: $(SRC:%.c=%)-%.o $(patsubst %.s,%.o,$(LIB:.c=.o)) $(patsubst %.xbm,%.o,$(wildcard cross-*.xbm)) menu-%.o statusbar.o helper-%.o flash_async.o
+$(PROG)-%.elf: $(SRC:%.c=%)-%.o $(patsubst %.s,%.o,$(LIB:.c=.o)) $(patsubst %.xbm,%.o,$(wildcard cross-*.xbm)) $(LANGUAGES:%=menu-\%-%.o) statusbar.o $(LANGUAGES:%=helper-%.o) flash_async.o
 	$(LINK.c) $^ $(LDLIBS) -o $@
 
 $(PROG)-%.hex: $(PROG)-%.elf
@@ -62,8 +68,10 @@ $(PROG)-%.hex: $(PROG)-%.elf
 $(PROG)-%.lst: $(PROG)-%.elf
 	$(OBJDUMP) -St $< > $@
 
+#	$(COMPILE.c) $(XBMFLAGS) $(OUTPUT_OPTION) helper-$(word 2,$(subst -, ,$(@:helper-%.o=%))).xbm
+
 helper-%.o: $(wildcard helper-*.xbm)
-	$(COMPILE.c) $(XBMFLAGS) $(OUTPUT_OPTION) helper-$(word 2,$(subst -, ,$(@:helper-%.o=%))).xbm
+	$(COMPILE.c) $(XBMFLAGS) $(OUTPUT_OPTION) helper-$*.xbm
 
 main-%.o: main.c
 	$(COMPILE.c) -DCONFIG=$(word 1,$(subst -, ,$(@:main-%.o=%))) -DLANG=$(word 2,$(subst -, ,$(@:main-%.o=%))) $(OUTPUT_OPTION) $<

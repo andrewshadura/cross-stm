@@ -1,6 +1,6 @@
 #include "menu-vd-ru.h"
 
-const unsigned char menu_widths[] = {
+const unsigned char menu_ru_widths[] = {
     8,
     12,
     //13,
