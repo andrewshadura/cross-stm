@@ -908,7 +908,7 @@ enum state_t {
 enum state_t state = state_status;
 
 
-void EXTI4_15_IRQHandler(void)
+void EXTI2_3_IRQHandler(void)
 {
     if(EXTI_GetITStatus(EXTI_Line8) != RESET)
     {
@@ -1555,7 +1555,7 @@ int main(void)
     /* Configure PB8 pin as input floating */
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
 
     GPIO_InitStructure.GPIO_Pin = A_MASK;
@@ -1567,18 +1567,18 @@ int main(void)
 
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
 
-    /* Connect EXTI7 Line to PB8 pin */
-    SYSCFG_EXTILineConfig(EXTI_PortSourceGPIOB, EXTI_PinSource8);
+    /* Connect EXTI2 Line to PA2 pin */
+    SYSCFG_EXTILineConfig(EXTI_PortSourceGPIOA, EXTI_PinSource2);
 
-    /* Configure EXTI7 line */
-    EXTI_InitStructure.EXTI_Line = EXTI_Line8;
+    /* Configure EXTI2 line */
+    EXTI_InitStructure.EXTI_Line = EXTI_Line2;
     EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
     EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
     EXTI_InitStructure.EXTI_LineCmd = ENABLE;
     EXTI_Init(&EXTI_InitStructure);
 
-    /* Enable and set EXTI4-15 Interrupt to the lowest priority */
-    NVIC_InitStructure.NVIC_IRQChannel = EXTI4_15_IRQn;
+    /* Enable and set EXTI2-3 Interrupt to the lowest priority */
+    NVIC_InitStructure.NVIC_IRQChannel = EXTI2_3_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPriority = 0x00;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
