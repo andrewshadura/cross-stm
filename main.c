@@ -186,7 +186,7 @@ volatile bool set_zoom_request = false;
 volatile bool set_palette_request = false;
 volatile uint8_t calibration_request = 0;
 volatile uint8_t calibration_button_request = 0;
-volatile uint8_t calibration_button = 0;
+volatile uint16_t calibration_button = 0;
 #define CALIBRATE 17
 
 #define CALIBRATION_BUTTONS_PORT GPIOB
