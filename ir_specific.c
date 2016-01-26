@@ -26,7 +26,7 @@ struct gauge_t gauges[] = {
 };
 
 static void camera_contrast(int button) {
-    calibration_button = (button == button_right) ? GPIO_Pin_4 : GPIO_Pin_7;
+    calibration_button = (button == button_right) ? CALIBRATION_BUTTON_RIGHT : CALIBRATION_BUTTON_LEFT;
     calibration_button_request = 2;
 }
 
