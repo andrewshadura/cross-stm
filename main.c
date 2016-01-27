@@ -910,7 +910,7 @@ enum state_t state = state_status;
 
 void EXTI2_3_IRQHandler(void)
 {
-    if(EXTI_GetITStatus(EXTI_Line8) != RESET)
+    if(EXTI_GetITStatus(EXTI_Line2) != RESET)
     {
         pulse_width = TIM6->CNT;
         TIM6->CNT = 0;
@@ -933,8 +933,8 @@ void EXTI2_3_IRQHandler(void)
             HSYNC();
         }
 
-        /* Clear the EXTI line 8 pending bit */
-        EXTI_ClearITPendingBit(EXTI_Line8);
+        /* Clear the EXTI line 2 pending bit */
+        EXTI_ClearITPendingBit(EXTI_Line2);
     }
 }
 
