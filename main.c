@@ -257,20 +257,18 @@ static void update_dcontrast(int value);
 /*
   |15|14|13|12|11|10| 9| 8| 7| 6| 5| 4| 3| 2| 1| 0|
 
-A =       3  4  5        6                    1     = 0x3902
-B =                                     2  7        = 0x000c
+A =       7  6  5        4                          = 0x3900
+B =                                        3  2  1  = 0x0007
 
 A + 0x0300:          [1][1]
-C =       3  4  5  6  X  X                    1
+C =       7  6  5  4  X  X
 
 Ch >> 7:
-                               3  4  5  6  X  X
-(Cl + B) >> 1:
-                                           2  7  1
+                               7  6  5  4  X  X
+B:
+                                           3  2  1
 
-                               3  4  5  6  2  7  1
-                               2  3  4  5  1  6  0
-
+                               7  6  5  4  3  2  1
                                6  5  4  3  2  1  0
 
 */
@@ -283,11 +281,11 @@ static inline char merge_inputs(uint16_t a, uint16_t b) {
     a = ((a & A_MASK) + 0x0300) & C_MASK;
     b = b & B_MASK;
 
-    uint16_t al = (a | b) & ((A_MASK | B_MASK) & 0xff);
-    b = (al >> 1) | (a >> 7);
+    b = b | (a >> 7);
     return b & 0x7f;
 }
 
+#if 0
 const char input_map[128] = {
 #define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
 /*
@@ -297,6 +295,7 @@ const char input_map[128] = {
     LT(2), LT(2), LT(2), LT(2), LT(3), LT(3), LT(4),
     5, 5, 5, 5, 5, 5, 5, 5, 1, 1, 1, 1, 6, 6, 0, 7
 };
+#endif
 
 uint8_t Tx1Buffer[16] = {0xf0, 0x03, 0x26, 0x01, 0x00, 0x27, 0xff};
 volatile uint8_t Tx1Count = 0;
@@ -308,7 +307,7 @@ void update_status(void) {
     uint16_t a = GPIOA->IDR;
     uint16_t b = GPIOB->IDR;
     uint8_t inputs = merge_inputs(a, b);
-    uint8_t input = input_map[inputs];
+    uint8_t input = inputs;
     if (input != current_input) {
         current_input = input;
         reload_settings = true;
