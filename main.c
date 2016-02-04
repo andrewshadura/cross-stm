@@ -275,7 +275,7 @@ B:
 
 #define A_MASK (GPIO_Pin_13 | GPIO_Pin_12 | GPIO_Pin_11 | GPIO_Pin_8)
 #define B_MASK (GPIO_Pin_2 | GPIO_Pin_1 | GPIO_Pin_0)
-#define C_MASK (GPIO_Pin_13 | GPIO_Pin_12 | GPIO_Pin_11 | GPIO_Pin_10 | GPIO_Pin_1)
+#define C_MASK (GPIO_Pin_13 | GPIO_Pin_12 | GPIO_Pin_11 | GPIO_Pin_10)
 
 static inline char merge_inputs(uint16_t a, uint16_t b) {
     a = ((a & A_MASK) + 0x0300) & C_MASK;
