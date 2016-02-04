@@ -285,17 +285,12 @@ static inline char merge_inputs(uint16_t a, uint16_t b) {
     return b & 0x7f;
 }
 
-#if 0
 const char input_map[128] = {
 #define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
-/*
-    8, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
-    LT(4), LT(5), LT(5), LT(6), LT(6), LT(6), LT(6)
-*/
-    LT(2), LT(2), LT(2), LT(2), LT(3), LT(3), LT(4),
-    5, 5, 5, 5, 5, 5, 5, 5, 1, 1, 1, 1, 6, 6, 0, 7
+    LT(6), LT(6), LT(6), LT(6), LT(5), LT(5), LT(4),
+    3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 1, 1, 0, 7
 };
-#endif
+
 
 uint8_t Tx1Buffer[16] = {0xf0, 0x03, 0x26, 0x01, 0x00, 0x27, 0xff};
 volatile uint8_t Tx1Count = 0;
@@ -307,7 +302,7 @@ void update_status(void) {
     uint16_t a = GPIOA->IDR;
     uint16_t b = GPIOB->IDR;
     uint8_t inputs = merge_inputs(a, b);
-    uint8_t input = inputs;
+    uint8_t input = input_map[inputs];
     if (input != current_input) {
         current_input = input;
         reload_settings = true;
