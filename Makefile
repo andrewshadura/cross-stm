@@ -73,7 +73,7 @@ $(PROG)-%.lst: $(PROG)-%.elf
 helper-%.o: $(wildcard helper-*.xbm)
 	$(COMPILE.c) $(XBMFLAGS) $(OUTPUT_OPTION) helper-$*.xbm
 
-main-%.o: main.c
+main-%.o: main.c $(LANGUAGES:%=helper-%.h)
 	$(COMPILE.c) -DCONFIG=$(word 1,$(subst -, ,$(@:main-%.o=%))) -DLANG=$(word 2,$(subst -, ,$(@:main-%.o=%))) $(OUTPUT_OPTION) $<
 
 XBMFLAGS=-Dstatic= -Dunsigned=const -x c
@@ -109,3 +109,4 @@ clean:
 	rm -f main-??-??.o $(patsubst %.s,%.o,$(LIB:.c=.o)) $(patsubst %.xbm,%.o,$(wildcard *.xbm))
 
 .PHONY: cmsis_boot/system_stm32f0xx_temp.c
+.SECONDARY: $(LIB:.c=.o)
