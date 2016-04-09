@@ -93,7 +93,7 @@ cross-%.h: cross-%.c
 	sed -n -e 's,const,extern const,g' -e '/const/s, =.*$$,;,gp' $< >> $@
 
 program: $(firstword $(TARGETS))
-	stm32flash -w $< /dev/ttyUSB0
+	stm32flash -R -w $< /dev/ttyUSB0
 
 program-%: %.hex
 	stm32flash -w $< /dev/ttyUSB0
