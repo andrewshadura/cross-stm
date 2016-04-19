@@ -2,9 +2,9 @@
 
 const unsigned char menu_en_widths[] = {
     11,
-    12,
+    15,
     //13,
-    10,
+    15,
     8,
     23,
     11,
