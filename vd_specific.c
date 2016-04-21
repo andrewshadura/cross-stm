@@ -62,8 +62,10 @@ static void buttons(void)
         }
     } else {
         if (hcount == HCOUNT_ON) {
-            old_button = debounced_code;
-            if (debounced_code != button_menu) {
+            if (!boot) {
+                old_button = debounced_code;
+            }
+            if (boot || (debounced_code != button_menu)) {
                 button = debounced_code;
             }
         }

@@ -58,6 +58,8 @@ struct settings_t {
     uint8_t contrast;
     uint8_t palette;
     uint8_t language;
+    int16_t cross_x_off;
+    int16_t cross_y_off;
 };
 
 struct settings_t __attribute__((section (".flash.page30"))) settings0;/* = {
@@ -93,14 +95,20 @@ char gauge_select = 0;
 #define GAUGE_START (240+9)
 #define CROSS_CENTRE cross_y
 
-#define CROSS_Y_DEFAULT (162+9)
-#define CROSS_X_DEFAULT (LEFT_OFFSET + 175 + 25)
+#define CROSS_Y_DEFAULT (162+9 + cross_y_off)
+#define CROSS_X_DEFAULT (LEFT_OFFSET + 175 + 25 + cross_x_off)
+
+uint16_t cross_x_default = 0;
+uint16_t cross_y_default = 0;
 
 #define CROSS_X_RANGE 79
 #define CROSS_Y_RANGE 79
 
-uint16_t cross_y = CROSS_Y_DEFAULT; /* +/- 85 */
-uint16_t cross_x = CROSS_X_DEFAULT;
+int16_t cross_y_off = 0;
+int16_t cross_x_off = 0;
+
+uint16_t cross_y = 0; /* +/- 85 */
+uint16_t cross_x = 0;
 
 uint16_t start_inv = MAINWIN_START + 3, end_inv = MAINWIN_START + 14;
 uint16_t real_start_inv = MAINWIN_START + 3, real_end_inv = MAINWIN_START + 14;
@@ -223,7 +231,7 @@ typedef void (*fn1_t)(int button);
 typedef const fn1_t menuitem_t[button_count];
 typedef const menuitem_t menu_t[];
 
-int current_item = 0;
+int current_item = -1;
 int current_confirm = 0;
 
 //#define MENU_LENGTH ((menu_height / 16))
@@ -297,6 +305,8 @@ volatile uint8_t Tx1Count = 0;
 uint8_t Tx2Buffer[16] = {0x02, 0x21, 0x03, 0x19, 0x00, 0x03};
 volatile uint8_t Tx2Count = 0;
 
+bool boot = true;
+
 void update_status(void) {
     int i;
     uint16_t a = GPIOA->IDR;
@@ -342,6 +352,10 @@ void update_status(void) {
         update_brightness(brightness);
         cross_x = settings.users[current_input].coords[current_zoom].x;
         cross_y = settings.users[current_input].coords[current_zoom].y;
+        cross_x_off = settings.cross_x_off;
+        cross_y_off = settings.cross_y_off;
+        cross_x_default = CROSS_X_DEFAULT;
+        cross_y_default = CROSS_Y_DEFAULT;
 
         reload_settings = false;
     }
@@ -386,6 +400,7 @@ static void calibrate_enter(int button);
 static void reset_confirm(int button);
 static void reset_settings(int button);
 static void switch_lang(int button);
+static void default_set(int button);
 
 #define STEPS 5
 #define STEPWIDTH (1024/STEPS)
@@ -461,6 +476,10 @@ menu_t off_menu = {
     {NULL, switch_zoom, switch_inversion, NULL, camera_contrast, camera_contrast, switch_menu}
 };
 
+menu_t default_xy_menu = {
+    {NULL, cross_xy, cross_xy, default_set, cross_xy, cross_xy, NULL}
+};
+
 menu_t switch_cross_menu = {
     {NULL, NULL, NULL, switch_cross, prev_cross, next_cross, switch_menu}
 };
@@ -481,7 +500,7 @@ menu_t confirm_menu = {
     {NULL, next_confirm, next_confirm, select_confirm, NULL, NULL, NULL},
 };
 
-menu_t * current_menu = &main_menu;
+menu_t * current_menu = &default_xy_menu;
 
 static void update_gauge(void) {
     int i;
@@ -735,26 +754,41 @@ static void set_move_cross(int button) {
 static void cross_xy(int button) {
     switch (button) {
         case button_left:
-            if (cross_x > (CROSS_X_DEFAULT - CROSS_X_RANGE)) {
+            if (cross_x > (cross_x_default - CROSS_X_RANGE)) {
                 cross_x--;
             }
             break;
         case button_right:
-            if (cross_x < (CROSS_X_DEFAULT + CROSS_X_RANGE)) {
+            if (cross_x < (cross_x_default + CROSS_X_RANGE)) {
                 cross_x++;
             }
             break;
         case button_up:
-            if (cross_y > (CROSS_Y_DEFAULT - CROSS_Y_RANGE)) {
+            if (cross_y > (cross_y_default - CROSS_Y_RANGE)) {
                 cross_y--;
             }
             break;
         case button_down:
-            if (cross_y < (CROSS_Y_DEFAULT + CROSS_Y_RANGE)) {
+            if (cross_y < (cross_y_default + CROSS_Y_RANGE)) {
                 cross_y++;
             }
             break;
     }
+}
+
+static void default_set(int button) {
+    menu = 0;
+    show_cross = true;
+    show_coords = false;
+    current_item = 0;
+    settings.cross_x_off = cross_x_off = (int16_t)cross_x - CROSS_X_DEFAULT;
+    settings.cross_y_off = cross_y_off = (int16_t)cross_y - CROSS_Y_DEFAULT;
+    cross_x_default = CROSS_X_DEFAULT;
+    cross_y_default = CROSS_Y_DEFAULT;
+    init_settings();
+    save_settings_request = true;
+    force_save_settings = true;
+    reload_settings = true;
 }
 
 static uint16_t clamp(uint16_t centre, int16_t delta, int16_t max) {
@@ -771,14 +805,14 @@ static void finish_move(int button) {
     settings.users[current_input].coords[current_zoom].x = cross_x;
     settings.users[current_input].coords[current_zoom].y = cross_y;
     if (current_zoom == 0) {
-        int16_t delta_x = settings.users[current_input].coords[0].x - CROSS_X_DEFAULT;
-        int16_t delta_y = settings.users[current_input].coords[0].y - CROSS_Y_DEFAULT;
-        settings.users[current_input].coords[1].x = clamp(CROSS_X_DEFAULT, delta_x * 2, CROSS_X_RANGE);
-        settings.users[current_input].coords[1].y = clamp(CROSS_Y_DEFAULT, delta_y * 2, CROSS_Y_RANGE);
-        settings.users[current_input].coords[2].x = clamp(CROSS_X_DEFAULT, delta_x * 4, CROSS_X_RANGE);
-        settings.users[current_input].coords[2].y = clamp(CROSS_Y_DEFAULT, delta_y * 4, CROSS_Y_RANGE);
-        settings.users[current_input].coords[3].x = clamp(CROSS_X_DEFAULT, delta_x * 8, CROSS_X_RANGE);
-        settings.users[current_input].coords[3].y = clamp(CROSS_Y_DEFAULT, delta_y * 8, CROSS_Y_RANGE);
+        int16_t delta_x = settings.users[current_input].coords[0].x - cross_x_default;
+        int16_t delta_y = settings.users[current_input].coords[0].y - cross_y_default;
+        settings.users[current_input].coords[1].x = clamp(cross_x_default, delta_x * 2, CROSS_X_RANGE);
+        settings.users[current_input].coords[1].y = clamp(cross_y_default, delta_y * 2, CROSS_Y_RANGE);
+        settings.users[current_input].coords[2].x = clamp(cross_x_default, delta_x * 4, CROSS_X_RANGE);
+        settings.users[current_input].coords[2].y = clamp(cross_y_default, delta_y * 4, CROSS_Y_RANGE);
+        settings.users[current_input].coords[3].x = clamp(cross_x_default, delta_x * 8, CROSS_X_RANGE);
+        settings.users[current_input].coords[3].y = clamp(cross_y_default, delta_y * 8, CROSS_Y_RANGE);
     }
     save_settings_request = true;
     force_save_settings = true;
@@ -842,6 +876,24 @@ void ADC1_COMP_IRQHandler(void)
 
 
 void control(void) {
+    if (boot) {
+        if (ad_done) {
+            buttons();
+            boot = false;
+            if (button == button_menu) {
+                menu = 2;
+                show_coords = true;
+                show_cross = true;
+                cross_x_off = 0;
+                cross_y_off = 0;
+                cross_x_default = CROSS_X_DEFAULT;
+                cross_y_default = CROSS_Y_DEFAULT;
+                button = button_none;
+            } else {
+                current_item = 0;
+            }
+        }
+    } else {
                 if (button != button_none) {
                     /*
                     if ((*current_menu)[current_item][button]) {
@@ -873,7 +925,7 @@ void control(void) {
 
                 autorepeat = menu == 2;
                 buttons();
-
+    }
 }
 
 uint8_t pulses = 0;
@@ -945,7 +997,7 @@ void draw_nothing(void) {
     if (row == 7) {
         #if 1
         if (show_coords) {
-            int16_t p_w = cross_x - CROSS_X_DEFAULT;
+            int16_t p_w = cross_x - cross_x_default;
 
             #define NUMBERS_START 14
             statusbar_ram_bits[NUMBERS_START + 0] = 0;
@@ -966,7 +1018,7 @@ void draw_nothing(void) {
                 statusbar_ram_bits[NUMBERS_START + 0] = CHARGEN_X;
             }
 
-            p_w = CROSS_Y_DEFAULT - cross_y;
+            p_w = cross_y_default - cross_y;
             statusbar_ram_bits[NUMBERS_START + 4] = 0;
             statusbar_ram_bits[NUMBERS_START + 5] = 0;
             statusbar_ram_bits[NUMBERS_START + 6] = 0;
@@ -1110,7 +1162,12 @@ void draw_status(void) {
 
                 const char * ptr = &statusbar_bits[status_row][0];
 
-                int current_width = menu_widths[current_item];
+                int current_width;
+                if (current_item >= 0) {
+                    current_width = menu_widths[current_item];
+                } else {
+                    current_width = 0;
+                }
 
                 if (menu < 2) {
                     SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[0]]));
@@ -1767,6 +1824,9 @@ int main(void)
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
 #endif
+
+    cross_x = CROSS_X_DEFAULT;
+    cross_y = CROSS_Y_DEFAULT;
 
     load_settings();
 
