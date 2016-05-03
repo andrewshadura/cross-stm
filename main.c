@@ -1313,33 +1313,11 @@ void draw_gauge(void) {
 }
 
 void HSYNC(void) {
-            if (row < 400) {
-                row++;
-            }
+    if (row < 400) {
+        row++;
+    }
 
-            current_fn();
-
-#if 0
-            if (row == 5) {
-                control();
-            } else if ((row > STATUSBAR_START) && (row < (STATUSBAR_START + 16))) {
-                current_fn = draw_status;
-            } else if ((menu == 1) && ((row > MAINWIN_START) && (row < (MAINWIN_START + menu_height - 1)))) {
-                current_fn = draw_menu;
-            } else if ((show_cross) && ((row > (CROSS_CENTRE - cross_height[cross_type] / 2)) && (row < (CROSS_CENTRE + cross_height[cross_type] / 2 - 1)))) {
-                current_fn = draw_cross;
-            } else if ((show_gauge) && ((row > MAINWIN_START) && (row < (MAINWIN_START + 15)))) {
-                current_fn = draw_gauge;
-            }
-#endif
-
-#if 0
-            if (save_settings_request) {
-                if (row > (MAINWIN_START + menu_height)) {
-                    save_settings();
-                }
-            }
-#endif
+    current_fn();
 }
 
 static void init_settings(void) {
