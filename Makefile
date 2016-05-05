@@ -59,7 +59,7 @@ e:
 .s.o:
 	$(COMPILE.c) $(OUTPUT_OPTION) $<
 
-$(PROG)-%.elf: $(SRC:%.c=%)-%.o $(patsubst %.s,%.o,$(LIB:.c=.o)) $(patsubst %.xbm,%.o,$(wildcard cross-*.xbm)) $(LANGUAGES:%=menu-\%-%.o) statusbar.o $(LANGUAGES:%=helper-%.o) flash_async.o
+$(PROG)-%.elf: $(SRC:%.c=%)-%.o $(patsubst %.s,%.o,$(LIB:.c=.o)) $(patsubst %.xbm,%.o,$(wildcard cross-*.xbm)) $(LANGUAGES:%=menu-\%-%.o) statusbar.o $(LANGUAGES:%=helper-%.o) flash_async.o compass.o
 	$(LINK.c) $^ $(LDLIBS) -o $@
 
 $(PROG)-%.hex: $(PROG)-%.elf

@@ -25,6 +25,8 @@
 #include "cross-tdot-mini.h"
 #include "cross-milt.h"
 
+#include "compass.h"
+
 #define LEFT_OFFSET -50
 
 struct coords_t {
@@ -307,6 +309,9 @@ volatile uint8_t Tx2Count = 0;
 
 bool boot = true;
 
+uint8_t q = 0;
+int16_t azimuth = 0;
+
 void update_status(void) {
     int i;
     uint16_t a = GPIOA->IDR;
@@ -359,6 +364,30 @@ void update_status(void) {
 
         reload_settings = false;
     }
+
+    if (read_compass_request) {
+        if (Compass_Read(0x00, (void *) &azimuth)) {
+            read_compass_request = false;
+            q++;
+        }
+    }
+    uint16_t qw;
+    if (azimuth < 0) {
+        qw = -azimuth;
+        statusbar_ram_bits[2] = CHARGEN_MINUS;
+    } else {
+        qw = azimuth;
+        statusbar_ram_bits[2] = CHARGEN_PLUS;
+    }
+    statusbar_ram_bits[7] = CHARGEN_NUMBERS + qw % 10;
+    qw /= 10;
+    statusbar_ram_bits[6] = CHARGEN_NUMBERS + qw % 10;
+    qw /= 10;
+    statusbar_ram_bits[5] = CHARGEN_NUMBERS + qw % 10;
+    qw /= 10;
+    statusbar_ram_bits[4] = CHARGEN_NUMBERS + qw % 10;
+    qw /= 10;
+    statusbar_ram_bits[3] = CHARGEN_NUMBERS + qw % 10;
 }
 
 const char f100[] = {1, CHARGEN_NUMBERS + 1, CHARGEN_NUMBERS + 0, CHARGEN_NUMBERS + 0, 2, 1, CHARGEN_NUMBERS + 5, CHARGEN_NUMBERS + 2};
@@ -1201,6 +1230,8 @@ void draw_status(void) {
                     count = 0;
                     batteryblink = !batteryblink;
                     send = true;
+                    read_compass_request = true;
+
                     //button = button_down;
                     if ((battery_low < 80) && (battery_level <= BATTERY_LOW_LEVEL)) {
                         battery_low++;
@@ -1631,6 +1662,8 @@ int main(void)
     GPIOA->BSRR = GPIO_Pin_7;
 
     GPIO_PinAFConfig(GPIOA, GPIO_PinSource7, GPIO_AF_0);
+
+    Compass_Setup();
 
     /* ADC1 Periph clock enable */
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_ADC1, ENABLE);
