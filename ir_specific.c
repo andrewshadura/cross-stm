@@ -9,6 +9,7 @@ menu_t main_menu = {
     {NULL, prev, next, enter_gauge,    NULL, NULL, switch_menu},
     {NULL, prev, next, set_move_cross, NULL, NULL, switch_menu},
     {NULL, prev, next, calibrate_enter,NULL, NULL, switch_menu},
+    {NULL, prev, next, compass_setup,  NULL, NULL, switch_menu},
     {NULL, prev, next, switch_palette, NULL, NULL, switch_menu},
     {NULL, prev, next, switch_lang,    NULL, NULL, switch_menu},
     {NULL, prev, next, reset_confirm, NULL, NULL, switch_menu}

@@ -8,6 +8,7 @@ const unsigned char menu_ru_widths[] = {
     8,
     23,
     9,
+    16,
     8,
     8,
     5

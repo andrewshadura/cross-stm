@@ -101,7 +101,7 @@ unsigned char gauge_ram_bits[12];
 char gauge_select = 0;
 
 #define STATUSBAR_START (35+9)
-#define MAINWIN_START (120+9)
+#define MAINWIN_START (100+9)
 #define GAUGE_START (240+9)
 #define CROSS_CENTRE cross_y
 
@@ -407,7 +407,7 @@ void update_status(void) {
     }
 
     static uint16_t count = 0;
-    if (++count == 10) {
+    if (++count == 2) {
         count = 0;
         read_compass_request = true;
     }
@@ -471,6 +471,7 @@ static void reset_confirm(int button);
 static void reset_settings(int button);
 static void switch_lang(int button);
 static void default_set(int button);
+static void compass_setup(int button);
 
 #define STEPS 5
 #define STEPWIDTH (1024/STEPS)
@@ -932,6 +933,9 @@ static void calibrate_enter(int button) {
     calibration_request = CALIBRATE;
     current_menu = &calibrate_cross_menu;
     calibrate_mode = 0;
+}
+
+static void compass_setup(int button) {
 }
 
 volatile uint16_t DACVal = 0x057f;

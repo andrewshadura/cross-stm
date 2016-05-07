@@ -8,6 +8,7 @@ const unsigned char menu_en_widths[] = {
     8,
     23,
     11,
+    13,
     8,
     8,
     5
