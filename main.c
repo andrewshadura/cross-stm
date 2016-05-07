@@ -27,7 +27,13 @@
 
 #include "compass.h"
 
+/* statusbar_width is the width of the bitmap */
+/* STATUSBAR_WIDTH is the width of the actual statusbar */
+#define STATUSBAR_WIDTH (256)
+
 #define LEFT_OFFSET -50
+
+unsigned int uuu = 0;
 
 struct coords_t {
     uint16_t x;
@@ -88,7 +94,11 @@ uint16_t adccal = 0;
 #define CHARGEN_X       (12 + CHARGEN_NUMBERS)
 #define CHARGEN_Y       (13 + CHARGEN_NUMBERS)
 
-unsigned char statusbar_ram_bits[statusbar_width / 8];
+unsigned char statusbar_ram_bits[STATUSBAR_WIDTH / 8];
+
+unsigned char compass_bits[9 + 2];
+static signed char compass_shifts[9 + 2];
+
 unsigned char gauge_ram_bits[12];
 char gauge_select = 0;
 
@@ -347,7 +357,22 @@ void update_status(void) {
             break;
     }
 
-    for (i = 25; i < (statusbar_width / 8); i++) {
+    #define CHARGEN_COMPASS 33
+    #define COMPASS_NEXT 8
+    compass_bits[0] = 0;
+    compass_shifts[0] = 0;
+    compass_bits[1] = CHARGEN_COMPASS + ((0 + (uuu / 8)) % 16);
+    compass_shifts[1] = uuu % 8;
+    compass_bits[2] = CHARGEN_COMPASS + ((1 + (uuu / 8)) % 16);
+    compass_shifts[2] = uuu % 8;
+    compass_bits[3] = CHARGEN_COMPASS + ((2 + (uuu / 8)) % 16);
+    compass_shifts[3] = uuu % 8;
+    compass_bits[4] = CHARGEN_COMPASS + ((3 + (uuu / 8)) % 16);
+    compass_shifts[4] = uuu % 8;
+    compass_bits[5] = CHARGEN_COMPASS + ((4 + (uuu / 8)) % 16);
+    compass_shifts[5] = 0xff;
+
+    for (i = 25; i < (STATUSBAR_WIDTH / 8); i++) {
         statusbar_ram_bits[i] = i;
     }
 
@@ -1187,7 +1212,7 @@ void draw_status(void) {
                 Delay(LEFT_OFFSET + 100);
 
                 int i;
-                int status_row = row - STATUSBAR_START;
+                int status_row = row - STATUSBAR_START - 1;
 
                 const char * ptr = &statusbar_bits[status_row][0];
 
@@ -1201,7 +1226,29 @@ void draw_status(void) {
                 if (menu < 2) {
                     SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[0]]));
                     SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[1]]));
-                    for (i = 2; i < (statusbar_width / 8) - 2; i++) {
+                    for (i = 2; i < 16; i++) {
+                        SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[i]]));
+                        while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
+                    }
+                    int j = 1;
+                    for (; i < 25; i++) {
+                        uint8_t b;
+                        int s = compass_shifts[j];
+                        /* if (s < 0) {
+                            b = (((((uint16_t)ptr[compass_bits[j - 1]]) << 8) |
+                                 ptr[compass_bits[j]]) >> (-s)) & 0xff;
+                        } else*/
+                        if (s == 0xff) {
+                            b = 0;
+                        } else {
+                            b = (((((uint16_t)ptr[compass_bits[j + 1]]) << 8) |
+                                 ptr[compass_bits[j]]) >> s) & 0xff;
+                        }
+                        SPI_SendData8(SPI1, ~(b));
+                        while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
+                        j++;
+                    }
+                    for (; i < (STATUSBAR_WIDTH / 8) - 2; i++) {
                         SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[i]]));
                         while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
                     }
@@ -1220,7 +1267,7 @@ void draw_status(void) {
                         while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
                         if (((*(ptr2)) == (*(ptr2 - 1))) && ((*(ptr2)) == 0)) break;
                     }
-                    for (; i < (statusbar_width / 8) - 2; i++) {
+                    for (; i < (STATUSBAR_WIDTH / 8) - 2; i++) {
                         SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[i]]));
                         while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
                     }
