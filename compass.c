@@ -109,10 +109,8 @@ bool Compass_Read(uint8_t reg, uint16_t *out) {
             if (I2C1->ISR & I2C_ISR_STOPF) {
                 I2C1->ICR = I2C_ICR_STOPCF;
                 state = 0;
-                if (tmp != 0x7ff0) {
-                    *out = tmp;
-                    return true;
-                }
+                *out = tmp;
+                return true;
             }
             break;
     }

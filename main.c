@@ -33,8 +33,6 @@
 
 #define LEFT_OFFSET -50
 
-unsigned int uuu = 0;
-
 struct coords_t {
     uint16_t x;
     uint16_t y;
@@ -102,7 +100,7 @@ static signed char compass_shifts[9 + 2];
 unsigned char gauge_ram_bits[12];
 char gauge_select = 0;
 
-#define STATUSBAR_START (25+9)
+#define STATUSBAR_START (35+9)
 #define MAINWIN_START (120+9)
 #define GAUGE_START (240+9)
 #define CROSS_CENTRE cross_y
@@ -357,19 +355,37 @@ void update_status(void) {
             break;
     }
 
+    uint16_t azimuth_binary = ((uint16_t)(azimuth + 180)) * 128 / 360;
+    static uint16_t azimuth_binary_displayed = 0;
+
+    if (azimuth_binary != azimuth_binary_displayed) {
+        int16_t d = azimuth_binary - azimuth_binary_displayed;
+        if (d < -96) {
+            d = 128 + d;
+        } else if (d > 96) {
+            d = -(128 - d);
+        }
+        d /= 2;
+        if (d != 0) {
+            azimuth_binary_displayed += d;
+        } else {
+            azimuth_binary_displayed = azimuth_binary;
+        }
+    }
+
     #define CHARGEN_COMPASS 33
     #define COMPASS_NEXT 8
     compass_bits[0] = 0;
     compass_shifts[0] = 0;
-    compass_bits[1] = CHARGEN_COMPASS + ((0 + (uuu / 8)) % 16);
-    compass_shifts[1] = uuu % 8;
-    compass_bits[2] = CHARGEN_COMPASS + ((1 + (uuu / 8)) % 16);
-    compass_shifts[2] = uuu % 8;
-    compass_bits[3] = CHARGEN_COMPASS + ((2 + (uuu / 8)) % 16);
-    compass_shifts[3] = uuu % 8;
-    compass_bits[4] = CHARGEN_COMPASS + ((3 + (uuu / 8)) % 16);
-    compass_shifts[4] = uuu % 8;
-    compass_bits[5] = CHARGEN_COMPASS + ((4 + (uuu / 8)) % 16);
+    compass_bits[1] = CHARGEN_COMPASS + ((0 + (azimuth_binary_displayed / 8)) % 16);
+    compass_shifts[1] = azimuth_binary_displayed % 8;
+    compass_bits[2] = CHARGEN_COMPASS + ((1 + (azimuth_binary_displayed / 8)) % 16);
+    compass_shifts[2] = azimuth_binary_displayed % 8;
+    compass_bits[3] = CHARGEN_COMPASS + ((2 + (azimuth_binary_displayed / 8)) % 16);
+    compass_shifts[3] = azimuth_binary_displayed % 8;
+    compass_bits[4] = CHARGEN_COMPASS + ((3 + (azimuth_binary_displayed / 8)) % 16);
+    compass_shifts[4] = azimuth_binary_displayed % 8;
+    compass_bits[5] = CHARGEN_COMPASS + ((4 + (azimuth_binary_displayed / 8)) % 16);
     compass_shifts[5] = 0xff;
 
     for (i = 25; i < (STATUSBAR_WIDTH / 8); i++) {
@@ -390,12 +406,12 @@ void update_status(void) {
         reload_settings = false;
     }
 
-    if (read_compass_request) {
-        if (Compass_Read(0x00, (void *) &azimuth)) {
-            read_compass_request = false;
-            q++;
-        }
+    static uint16_t count = 0;
+    if (++count == 10) {
+        count = 0;
+        read_compass_request = true;
     }
+
     uint16_t qw;
     if (azimuth < 0) {
         qw = -azimuth;
@@ -1272,12 +1288,11 @@ void draw_status(void) {
                         while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
                     }
                 }
-                static int count = 0;
+                static uint16_t count = 0;
                 if (++count == 350) {
                     count = 0;
                     batteryblink = !batteryblink;
                     send = true;
-                    read_compass_request = true;
 
                     //button = button_down;
                     if ((battery_low < 80) && (battery_level <= BATTERY_LOW_LEVEL)) {
@@ -1396,6 +1411,13 @@ void HSYNC(void) {
     }
 
     current_fn();
+
+    if (read_compass_request) {
+        if (Compass_Read(0x00, (void *) &azimuth)) {
+            read_compass_request = false;
+            q++;
+        }
+    }
 }
 
 static void init_settings(void) {
