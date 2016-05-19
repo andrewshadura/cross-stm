@@ -190,6 +190,8 @@ bool show_menu = false;
 bool show_coords = false;
 char show_saving = 0;
 
+uint8_t compass_setup_state = 0;
+
 #define SAVING_DELAY 3
 
 bool autorepeat = false;
@@ -317,7 +319,8 @@ volatile uint8_t Tx2Count = 0;
 
 bool boot = true;
 
-uint8_t q = 0;
+uint8_t compass_retries = 0;
+bool live_compass = true;
 int16_t azimuth = 0;
 
 void update_status(void) {
@@ -373,20 +376,27 @@ void update_status(void) {
         }
     }
 
-    #define CHARGEN_COMPASS 33
-    #define COMPASS_NEXT 8
-    compass_bits[0] = 0;
-    compass_shifts[0] = 0;
-    compass_bits[1] = CHARGEN_COMPASS + ((0 + (azimuth_binary_displayed / 8)) % 16);
-    compass_shifts[1] = azimuth_binary_displayed % 8;
-    compass_bits[2] = CHARGEN_COMPASS + ((1 + (azimuth_binary_displayed / 8)) % 16);
-    compass_shifts[2] = azimuth_binary_displayed % 8;
-    compass_bits[3] = CHARGEN_COMPASS + ((2 + (azimuth_binary_displayed / 8)) % 16);
-    compass_shifts[3] = azimuth_binary_displayed % 8;
-    compass_bits[4] = CHARGEN_COMPASS + ((3 + (azimuth_binary_displayed / 8)) % 16);
-    compass_shifts[4] = azimuth_binary_displayed % 8;
-    compass_bits[5] = CHARGEN_COMPASS + ((4 + (azimuth_binary_displayed / 8)) % 16);
-    compass_shifts[5] = 0xff;
+    if (compass_retries && live_compass) {
+        #define CHARGEN_COMPASS 33
+        #define COMPASS_NEXT 8
+        compass_bits[0] = 0;
+        compass_shifts[0] = 0;
+        compass_bits[1] = CHARGEN_COMPASS + ((0 + (azimuth_binary_displayed / 8)) % 16);
+        compass_shifts[1] = azimuth_binary_displayed % 8;
+        compass_bits[2] = CHARGEN_COMPASS + ((1 + (azimuth_binary_displayed / 8)) % 16);
+        compass_shifts[2] = azimuth_binary_displayed % 8;
+        compass_bits[3] = CHARGEN_COMPASS + ((2 + (azimuth_binary_displayed / 8)) % 16);
+        compass_shifts[3] = azimuth_binary_displayed % 8;
+        compass_bits[4] = CHARGEN_COMPASS + ((3 + (azimuth_binary_displayed / 8)) % 16);
+        compass_shifts[4] = azimuth_binary_displayed % 8;
+        compass_bits[5] = CHARGEN_COMPASS + ((4 + (azimuth_binary_displayed / 8)) % 16);
+        compass_shifts[5] = 0xff;
+    } else {
+        compass_shifts[1] = 0xff;
+        compass_shifts[2] = 0xff;
+        compass_shifts[3] = 0xff;
+        compass_shifts[4] = 0xff;
+    }
 
     for (i = 25; i < (STATUSBAR_WIDTH / 8); i++) {
         statusbar_ram_bits[i] = i;
@@ -409,9 +419,14 @@ void update_status(void) {
     static uint16_t count = 0;
     if (++count == 2) {
         count = 0;
+        Compass_Reset();
         read_compass_request = true;
+        if (compass_retries) {
+            compass_retries--;
+        }
     }
 
+    if (live_compass) {
     uint16_t qw;
     if (azimuth < 0) {
         qw = -azimuth;
@@ -429,6 +444,11 @@ void update_status(void) {
     statusbar_ram_bits[4] = CHARGEN_NUMBERS + qw % 10;
     qw /= 10;
     statusbar_ram_bits[3] = CHARGEN_NUMBERS + qw % 10;
+    } else {
+        statusbar_ram_bits[3] = CHARGEN_NUMBERS + compass_setup_state;
+        statusbar_ram_bits[4] = 0;
+        statusbar_ram_bits[5] = CHARGEN_NUMBERS + menu;
+    }
 }
 
 const char f100[] = {1, CHARGEN_NUMBERS + 1, CHARGEN_NUMBERS + 0, CHARGEN_NUMBERS + 0, 2, 1, CHARGEN_NUMBERS + 5, CHARGEN_NUMBERS + 2};
@@ -472,6 +492,7 @@ static void reset_settings(int button);
 static void switch_lang(int button);
 static void default_set(int button);
 static void compass_setup(int button);
+static void compass_setup_confirm(int button);
 
 #define STEPS 5
 #define STEPWIDTH (1024/STEPS)
@@ -565,6 +586,10 @@ menu_t move_cross_menu = {
 
 menu_t calibrate_cross_menu = {
     {NULL, calibrate_xy, calibrate_xy, calibrate_set, calibrate_xy, calibrate_xy, NULL}
+};
+
+menu_t compass_setup_menu = {
+    {NULL, NULL, NULL, compass_setup_confirm, NULL, NULL, NULL}
 };
 
 menu_t confirm_menu = {
@@ -936,6 +961,19 @@ static void calibrate_enter(int button) {
 }
 
 static void compass_setup(int button) {
+    if (!compass_retries) return;
+
+    menu = 2;
+    show_cross = false;
+    live_compass = false;
+    current_menu = &compass_setup_menu;
+    compass_setup_state = 1;
+}
+
+static void compass_setup_confirm(int button) {
+    if ((compass_setup_state >= 2) && (compass_setup_state < 5)) {
+        compass_setup_state++;
+    }
 }
 
 volatile uint16_t DACVal = 0x057f;
@@ -1224,6 +1262,45 @@ void draw_nothing(void) {
                     }
                 }
             }
+            if (read_compass_request && live_compass) {
+                if (Compass_Read(0x00, (void *) &azimuth)) {
+                    read_compass_request = false;
+                    compass_retries = 50;
+                }
+            }
+            if (compass_setup_state) {
+                switch (compass_setup_state) {
+                    case 1:
+                        if (Compass_Write(0x02, 0x01)) {
+                            compass_setup_state++;
+                        }
+                        break;
+
+                    case 5:
+                        if (Compass_Write(0x02, 0x03)) {
+                            compass_setup_state++;
+                        }
+                        break;
+
+                    case 6: {
+                        uint8_t status[2];
+                        if (Compass_Read(0x02, &status)) {
+                            if (status[0] == 0x01) {
+                                state++;
+                            }
+                        }
+                    }   break;
+
+                    case 7:
+                        if (Compass_Write(0x02, 0x00)) {
+                            compass_setup_state = 0;
+                            menu--;
+                            show_cross = true;
+                            live_compass = true;
+                        }
+                        break;
+                }
+            }
             break;
     }
 }
@@ -1246,12 +1323,13 @@ void draw_status(void) {
                 if (menu < 2) {
                     SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[0]]));
                     SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[1]]));
-                    for (i = 2; i < 16; i++) {
+                    for (i = 2; i < 24; i++) {
                         SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[i]]));
                         while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
                     }
                     int j = 1;
-                    for (; i < 25; i++) {
+                    #if 1
+                    for (; i < 29; i++) {
                         uint8_t b;
                         int s = compass_shifts[j];
                         /* if (s < 0) {
@@ -1268,6 +1346,7 @@ void draw_status(void) {
                         while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
                         j++;
                     }
+                    #endif
                     for (; i < (STATUSBAR_WIDTH / 8) - 2; i++) {
                         SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[i]]));
                         while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
@@ -1415,13 +1494,6 @@ void HSYNC(void) {
     }
 
     current_fn();
-
-    if (read_compass_request) {
-        if (Compass_Read(0x00, (void *) &azimuth)) {
-            read_compass_request = false;
-            q++;
-        }
-    }
 }
 
 static void init_settings(void) {

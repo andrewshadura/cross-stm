@@ -8,6 +8,7 @@
 #include "compass.h"
 
 bool read_compass_request = false;
+uint8_t compass_lock = 0;
 
 void Compass_Setup(void) {
     GPIO_InitTypeDef GPIO_InitStructure;
@@ -116,4 +117,38 @@ bool Compass_Read(uint8_t reg, uint16_t *out) {
     }
     return false;
 }
+
+bool Compass_Write(uint8_t reg, uint8_t value) {
+    switch (state) {
+
+        case 0:
+            I2C_TransferHandling(I2C1, COMPASS_ADDR, 2, I2C_AutoEnd_Mode, I2C_Generate_Start_Write);
+            state++;
+            break;
+
+        case 1:
+            if (I2C1->ISR & I2C_ISR_TXIS) {
+                I2C_SendData(I2C1, reg);
+                state++;
+            }
+            break;
+
+        case 2:
+            if (I2C1->ISR & I2C_ISR_TXIS) {
+                I2C_SendData(I2C1, value);
+                state++;
+            }
+            break;
+
+        case 3:
+            if (I2C1->ISR & I2C_ISR_STOPF) {
+                I2C1->ICR = I2C_ICR_STOPCF;
+                state = 0;
+                return true;
+            }
+            break;
+    }
+    return false;
+}
+
 
