@@ -27,6 +27,10 @@
 
 #include "compass.h"
 
+#include "compass-setup-x.h"
+#include "compass-setup-y.h"
+#include "compass-setup-z.h"
+
 /* statusbar_width is the width of the bitmap */
 /* STATUSBAR_WIDTH is the width of the actual statusbar */
 #define STATUSBAR_WIDTH (256)
@@ -447,7 +451,7 @@ void update_status(void) {
     } else {
         statusbar_ram_bits[3] = CHARGEN_NUMBERS + compass_setup_state;
         statusbar_ram_bits[4] = 0;
-        statusbar_ram_bits[5] = CHARGEN_NUMBERS + menu;
+        statusbar_ram_bits[5] = CHARGEN_NUMBERS + Compass_GetState();
     }
 }
 
@@ -529,6 +533,14 @@ const char (* helper_bits)[helper_en_width / 8] = helper_en_bits;
 
 int saving_min = SAVING_EN_MIN;
 int saving_max = SAVING_EN_MAX;
+
+void * compass_setup_bits[5] = {
+    &compass_setup_x_bits,
+    &compass_setup_y_bits,
+    &compass_setup_z_bits,
+    &compass_setup_z_bits,
+    &compass_setup_z_bits
+};
 
 void set_language(void) {
     switch (settings.language) {
@@ -961,17 +973,21 @@ static void calibrate_enter(int button) {
 }
 
 static void compass_setup(int button) {
-    if (!compass_retries) return;
-
     menu = 2;
     show_cross = false;
     live_compass = false;
+    show_menu = true;
     current_menu = &compass_setup_menu;
+    helper_bits = compass_setup_bits[0];
+    menu_height = compass_setup_x_height;
     compass_setup_state = 1;
+    real_start_inv = start_inv = 0;
+    real_end_inv = end_inv = 0;
 }
 
 static void compass_setup_confirm(int button) {
     if ((compass_setup_state >= 2) && (compass_setup_state < 5)) {
+        helper_bits = compass_setup_bits[compass_setup_state - 1];
         compass_setup_state++;
     }
 }
@@ -1282,20 +1298,24 @@ void draw_nothing(void) {
                         }
                         break;
 
-                    case 6: {
+                    case 6: /* {
                         uint8_t status[2];
                         if (Compass_Read(0x02, &status)) {
                             if (status[0] == 0x01) {
-                                state++;
+                                compass_setup_state++;
                             }
                         }
-                    }   break;
+                    }   break;*/
 
                     case 7:
                         if (Compass_Write(0x02, 0x00)) {
                             compass_setup_state = 0;
                             menu--;
+                            show_menu = false;
+                            set_language();
                             show_cross = true;
+                            real_start_inv = start_inv = MAINWIN_START + 3 + current_item * 16;
+                            real_end_inv = end_inv = MAINWIN_START + 14 + current_item * 16;
                             live_compass = true;
                         }
                         break;

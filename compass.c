@@ -64,6 +64,10 @@ void Compass_Setup(void) {
 
 static int state = 0;
 
+int Compass_GetState(void) {
+    return state;
+}
+
 void Compass_Reset(void) {
     state = 0;
 }
