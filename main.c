@@ -102,8 +102,11 @@ char gauge_select = 0;
 
 #define STATUSBAR_START (35+9)
 #define MAINWIN_START (100+9)
-#define GAUGE_START (240+9)
+#define GAUGE_TOP_START (70)
+#define GAUGE_BOTTOM_START (249)
 #define CROSS_CENTRE cross_y
+
+uint16_t gauge_start = 0;
 
 #define CROSS_Y_DEFAULT (162+9 + cross_y_off)
 #define CROSS_X_DEFAULT (LEFT_OFFSET + 175 + 25 + cross_x_off)
@@ -1151,6 +1154,11 @@ void draw_nothing(void) {
             }
         }
         #endif
+        if ((CROSS_CENTRE + cross_height[cross_type] / 2) >= GAUGE_BOTTOM_START) {
+            gauge_start = GAUGE_TOP_START;
+        } else {
+            gauge_start = GAUGE_BOTTOM_START;
+        }
     }
     switch (state) {
         case state_status:
@@ -1178,15 +1186,23 @@ void draw_nothing(void) {
                     state = state_bottom;
                     return;
                 }
+            } else if (row == GAUGE_TOP_START) {
+                if (show_gauge) {
+                    if (gauge_start == GAUGE_TOP_START) {
+                        current_fn = draw_gauge;
+                    }
+                }
             }
             if ((menu == 2) && (!show_cross) && (!show_gauge) && (!show_menu)) {
                 state = state_bottom;
             }
             break;
         case state_bottom:
-            if (row == GAUGE_START) {
+            if (row == GAUGE_BOTTOM_START) {
                 if (show_gauge) {
-                    current_fn = draw_gauge;
+                    if (gauge_start == GAUGE_BOTTOM_START) {
+                        current_fn = draw_gauge;
+                    }
                 }
             }
             if (save_settings_request && ((menu == 0) || force_save_settings)) {
@@ -1473,7 +1489,7 @@ void draw_gauge(void) {
                 Delay(LEFT_OFFSET + 180);
 
                 int i;
-                const char * ptr = &statusbar_bits[gauge_select * 16 + row - GAUGE_START - 1][0];
+                const char * ptr = &statusbar_bits[gauge_select * 16 + row - gauge_start - 1][0];
 
                 //SPI_SendData8(SPI1, ~(ptr[gauge_ram_bits[0]]));
                 //SPI_SendData8(SPI1, ~(ptr[gauge_ram_bits[1]]));
@@ -1483,7 +1499,7 @@ void draw_gauge(void) {
                 }
                 SPI_SendData8(SPI1, 0xff);
 
-    if (row >= (GAUGE_START + 16)) {
+    if (row >= (gauge_start + 16)) {
         current_fn = draw_nothing;
     }
 }
