@@ -106,8 +106,11 @@ char gauge_select = 0;
 
 #define STATUSBAR_START (35+9)
 #define MAINWIN_START (100+9)
-#define GAUGE_START (240+9)
+#define GAUGE_TOP_START (70)
+#define GAUGE_BOTTOM_START (249)
 #define CROSS_CENTRE cross_y
+
+uint16_t gauge_start = 0;
 
 #define CROSS_Y_DEFAULT (162+9 + cross_y_off)
 #define CROSS_X_DEFAULT (LEFT_OFFSET + 175 + 25 + cross_x_off)
@@ -423,7 +426,7 @@ void update_status(void) {
     static uint16_t count = 0;
     if (++count == 2) {
         count = 0;
-        Compass_Reset();
+        //Compass_Reset();
         read_compass_request = true;
         if (compass_retries) {
             compass_retries--;
@@ -697,6 +700,7 @@ void send2_packet(void);
 
 static void switch_move_menu(int button) {
     finish_move(button);
+    live_compass = true;
     show_cross = false;
     show_coords = false;
     menu--;
@@ -857,6 +861,7 @@ static void set_move_cross(int button) {
     current_menu = &move_cross_menu;
     show_coords = true;
     show_cross = true;
+    live_compass = false;
 }
 
 static void cross_xy(int button) {
@@ -1167,6 +1172,11 @@ void draw_nothing(void) {
             }
         }
         #endif
+        if ((CROSS_CENTRE + cross_height[cross_type] / 2) >= GAUGE_BOTTOM_START) {
+            gauge_start = GAUGE_TOP_START;
+        } else {
+            gauge_start = GAUGE_BOTTOM_START;
+        }
     }
     switch (state) {
         case state_status:
@@ -1194,15 +1204,23 @@ void draw_nothing(void) {
                     state = state_bottom;
                     return;
                 }
+            } else if (row == GAUGE_TOP_START) {
+                if (show_gauge) {
+                    if (gauge_start == GAUGE_TOP_START) {
+                        current_fn = draw_gauge;
+                    }
+                }
             }
             if ((menu == 2) && (!show_cross) && (!show_gauge) && (!show_menu)) {
                 state = state_bottom;
             }
             break;
         case state_bottom:
-            if (row == GAUGE_START) {
+            if (row == GAUGE_BOTTOM_START) {
                 if (show_gauge) {
-                    current_fn = draw_gauge;
+                    if (gauge_start == GAUGE_BOTTOM_START) {
+                        current_fn = draw_gauge;
+                    }
                 }
             }
             if (save_settings_request && ((menu == 0) || force_save_settings)) {
@@ -1211,6 +1229,57 @@ void draw_nothing(void) {
                 uint16_t vrefint = *((__IO uint16_t*) 0x1ffff7ba);
                 battery_level = (330L * vrefint / 4096 * adc_buffer[1] / adc_buffer[2]);
             }
+            if (read_compass_request && live_compass) {
+                if (Compass_Read(0x00, (void *) &azimuth)) {
+                    read_compass_request = false;
+                    compass_retries = 50;
+                }
+            }
+            if (compass_setup_state) {
+                switch (compass_setup_state) {
+                    case 1:
+                        if (Compass_Write(0x02, 0x01)) {
+                            compass_setup_state++;
+                        }
+                        break;
+
+                    case 5:
+                        if (Compass_Write(0x02, 0x03)) {
+                            compass_setup_state++;
+                        }
+                        break;
+
+                    case 6:
+                    case 7:
+                        if (once) {
+                            compass_setup_state++;
+                        }
+                        break;
+
+                    case 8: {
+                        uint8_t status[2];
+                        if (Compass_Read(0x02, &status)) {
+                            if ((status[0] & 0x3) == 0x01) {
+                                compass_setup_state++;
+                            }
+                        }
+                    }   break;
+
+                    case 9:
+                        if (Compass_Write(0x02, 0x00)) {
+                            compass_setup_state = 0;
+                            menu--;
+                            show_menu = false;
+                            set_language();
+                            show_cross = true;
+                            real_start_inv = start_inv = MAINWIN_START + 3 + current_item * 16;
+                            real_end_inv = end_inv = MAINWIN_START + 14 + current_item * 16;
+                            live_compass = true;
+                        }
+                        break;
+                }
+            }
+
             if (once) {
                 once = false;
                 if (start_inv != real_start_inv) {
@@ -1276,49 +1345,6 @@ void draw_nothing(void) {
                         }
 
                     }
-                }
-            }
-            if (read_compass_request && live_compass) {
-                if (Compass_Read(0x00, (void *) &azimuth)) {
-                    read_compass_request = false;
-                    compass_retries = 50;
-                }
-            }
-            if (compass_setup_state) {
-                switch (compass_setup_state) {
-                    case 1:
-                        if (Compass_Write(0x02, 0x01)) {
-                            compass_setup_state++;
-                        }
-                        break;
-
-                    case 5:
-                        if (Compass_Write(0x02, 0x03)) {
-                            compass_setup_state++;
-                        }
-                        break;
-
-                    case 6: /* {
-                        uint8_t status[2];
-                        if (Compass_Read(0x02, &status)) {
-                            if (status[0] == 0x01) {
-                                compass_setup_state++;
-                            }
-                        }
-                    }   break;*/
-
-                    case 7:
-                        if (Compass_Write(0x02, 0x00)) {
-                            compass_setup_state = 0;
-                            menu--;
-                            show_menu = false;
-                            set_language();
-                            show_cross = true;
-                            real_start_inv = start_inv = MAINWIN_START + 3 + current_item * 16;
-                            real_end_inv = end_inv = MAINWIN_START + 14 + current_item * 16;
-                            live_compass = true;
-                        }
-                        break;
                 }
             }
             break;
@@ -1493,7 +1519,7 @@ void draw_gauge(void) {
                 Delay(LEFT_OFFSET + 180);
 
                 int i;
-                const char * ptr = &statusbar_bits[gauge_select * 16 + row - GAUGE_START - 1][0];
+                const char * ptr = &statusbar_bits[gauge_select * 16 + row - gauge_start - 1][0];
 
                 //SPI_SendData8(SPI1, ~(ptr[gauge_ram_bits[0]]));
                 //SPI_SendData8(SPI1, ~(ptr[gauge_ram_bits[1]]));
@@ -1503,7 +1529,7 @@ void draw_gauge(void) {
                 }
                 SPI_SendData8(SPI1, 0xff);
 
-    if (row >= (GAUGE_START + 16)) {
+    if (row >= (gauge_start + 16)) {
         current_fn = draw_nothing;
     }
 }
