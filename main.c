@@ -422,7 +422,7 @@ void update_status(void) {
     static uint16_t count = 0;
     if (++count == 2) {
         count = 0;
-        Compass_Reset();
+        //Compass_Reset();
         read_compass_request = true;
         if (compass_retries) {
             compass_retries--;
@@ -688,6 +688,7 @@ void send2_packet(void);
 
 static void switch_move_menu(int button) {
     finish_move(button);
+    live_compass = true;
     show_cross = false;
     show_coords = false;
     menu--;
@@ -848,6 +849,7 @@ static void set_move_cross(int button) {
     current_menu = &move_cross_menu;
     show_coords = true;
     show_cross = true;
+    live_compass = false;
 }
 
 static void cross_xy(int button) {
@@ -1211,6 +1213,53 @@ void draw_nothing(void) {
                 uint16_t vrefint = *((__IO uint16_t*) 0x1ffff7ba);
                 battery_level = (330L * vrefint / 4096 * adc_buffer[1] / adc_buffer[2]);
             }
+            if (read_compass_request && live_compass) {
+                if (Compass_Read(0x00, (void *) &azimuth)) {
+                    read_compass_request = false;
+                    compass_retries = 50;
+                }
+            }
+            if (compass_setup_state) {
+                switch (compass_setup_state) {
+                    case 1:
+                        if (Compass_Write(0x02, 0x01)) {
+                            compass_setup_state++;
+                        }
+                        break;
+
+                    case 5:
+                        if (Compass_Write(0x02, 0x03)) {
+                            compass_setup_state++;
+                        }
+                        break;
+
+                    case 6:
+                    case 7:
+                        if (once) {
+                            compass_setup_state++;
+                        }
+                        break;
+
+                    case 8: {
+                        uint8_t status[2];
+                        if (Compass_Read(0x02, &status)) {
+                            if ((status[0] & 0x3) == 0x01) {
+                                compass_setup_state++;
+                            }
+                        }
+                    }   break;
+
+                    case 9:
+                        if (Compass_Write(0x02, 0x00)) {
+                            compass_setup_state = 0;
+                            menu--;
+                            show_cross = true;
+                            live_compass = true;
+                        }
+                        break;
+                }
+            }
+
             if (once) {
                 once = false;
                 if (start_inv != real_start_inv) {
@@ -1276,45 +1325,6 @@ void draw_nothing(void) {
                         }
 
                     }
-                }
-            }
-            if (read_compass_request && live_compass) {
-                if (Compass_Read(0x00, (void *) &azimuth)) {
-                    read_compass_request = false;
-                    compass_retries = 50;
-                }
-            }
-            if (compass_setup_state) {
-                switch (compass_setup_state) {
-                    case 1:
-                        if (Compass_Write(0x02, 0x01)) {
-                            compass_setup_state++;
-                        }
-                        break;
-
-                    case 5:
-                        if (Compass_Write(0x02, 0x03)) {
-                            compass_setup_state++;
-                        }
-                        break;
-
-                    case 6: {
-                        uint8_t status[2];
-                        if (Compass_Read(0x02, &status)) {
-                            if (status[0] == 0x01) {
-                                state++;
-                            }
-                        }
-                    }   break;
-
-                    case 7:
-                        if (Compass_Write(0x02, 0x00)) {
-                            compass_setup_state = 0;
-                            menu--;
-                            show_cross = true;
-                            live_compass = true;
-                        }
-                        break;
                 }
             }
             break;
@@ -1579,8 +1589,6 @@ static void save_settings(void) {
                           (((uint32_t *)&settings)[i]));
     }
 #endif
-    static bool saving = false;
-    static char state = FLASH_Idle;
 
     {
         static int i, words;
