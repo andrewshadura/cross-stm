@@ -434,7 +434,7 @@ void update_status(void) {
         }
     }
 
-    #if 1
+    #if 0
     if (live_compass) {
     uint16_t qw;
     if (azimuth < 0) {
