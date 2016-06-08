@@ -432,6 +432,7 @@ void update_status(void) {
         }
     }
 
+    #if 1
     if (live_compass) {
     uint16_t qw;
     if (azimuth < 0) {
@@ -450,11 +451,8 @@ void update_status(void) {
     statusbar_ram_bits[4] = CHARGEN_NUMBERS + qw % 10;
     qw /= 10;
     statusbar_ram_bits[3] = CHARGEN_NUMBERS + qw % 10;
-    } else {
-        statusbar_ram_bits[3] = CHARGEN_NUMBERS + compass_setup_state;
-        statusbar_ram_bits[4] = 0;
-        statusbar_ram_bits[5] = CHARGEN_NUMBERS + Compass_GetState();
     }
+    #endif
 }
 
 const char f100[] = {1, CHARGEN_NUMBERS + 1, CHARGEN_NUMBERS + 0, CHARGEN_NUMBERS + 0, 2, 1, CHARGEN_NUMBERS + 5, CHARGEN_NUMBERS + 2};
