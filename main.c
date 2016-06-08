@@ -536,14 +536,6 @@ const char (* helper_bits)[helper_en_width / 8] = helper_en_bits;
 int saving_min = SAVING_EN_MIN;
 int saving_max = SAVING_EN_MAX;
 
-void * compass_setup_bits[5] = {
-    &compass_setup_x_bits,
-    &compass_setup_y_bits,
-    &compass_setup_z_bits,
-    &compass_setup_z_bits,
-    &compass_setup_z_bits
-};
-
 void set_language(void) {
     switch (settings.language) {
         case LANG_EN: {
@@ -982,7 +974,6 @@ static void compass_setup(int button) {
     live_compass = false;
     show_menu = true;
     current_menu = &compass_setup_menu;
-    helper_bits = compass_setup_bits[0];
     menu_height = compass_setup_x_height;
     compass_setup_state = 1;
     real_start_inv = start_inv = 0;
@@ -991,7 +982,6 @@ static void compass_setup(int button) {
 
 static void compass_setup_confirm(int button) {
     if ((compass_setup_state >= 2) && (compass_setup_state < 5)) {
-        helper_bits = compass_setup_bits[compass_setup_state - 1];
         compass_setup_state++;
     }
 }
@@ -1458,7 +1448,25 @@ void draw_menu(void) {
                 if (menu < 2) {
                     ptr = &menu_bits[row - MAINWIN_START][0];
                 } else {
-                    ptr = &helper_bits[row - MAINWIN_START][0];
+                    switch (compass_setup_state) {
+                        case 0:
+                            ptr = &helper_bits[row - MAINWIN_START][0];
+                            break;
+
+                        case 1:
+                        case 2:
+                            ptr = &compass_setup_x_bits[row - MAINWIN_START][0];
+                            break;
+
+                        case 3:
+                            ptr = &compass_setup_y_bits[row - MAINWIN_START][0];
+                            break;
+
+                        case 4:
+                        default:
+                            ptr = &compass_setup_z_bits[row - MAINWIN_START][0];
+                            break;
+                    }
                 }
                 bool notselected = ((row < real_start_inv) | (row > real_end_inv));
                 if (notselected) {
