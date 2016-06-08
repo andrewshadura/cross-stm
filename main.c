@@ -426,7 +426,6 @@ void update_status(void) {
     static uint16_t count = 0;
     if (++count == 2) {
         count = 0;
-        //Compass_Reset();
         read_compass_request = true;
         if (compass_retries) {
             compass_retries--;

@@ -73,11 +73,13 @@ void Compass_Reset(void) {
 }
 
 bool Compass_Read(uint8_t reg, uint16_t *out) {
+    static uint16_t timecnt;
     static uint16_t tmp = 0;
 
     switch (state) {
 
         case 0:
+            timecnt = 0;
             I2C_TransferHandling(I2C1, COMPASS_ADDR, 1, I2C_SoftEnd_Mode, I2C_Generate_Start_Write);
             state++;
             break;
@@ -118,6 +120,11 @@ bool Compass_Read(uint8_t reg, uint16_t *out) {
                 return true;
             }
             break;
+    }
+    if (state != 0) {
+        if (timecnt > 2000) {
+            state = 0;
+        }
     }
     return false;
 }
