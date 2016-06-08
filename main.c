@@ -1070,7 +1070,8 @@ fn_t current_fn = draw_nothing;
 enum state_t {
     state_status = 0,
     state_main,
-    state_bottom
+    state_bottom,
+    state_skip
 };
 
 enum state_t state = state_status;
@@ -1336,6 +1337,8 @@ void draw_nothing(void) {
                     }
                 }
             }
+            break;
+        case state_skip:
             break;
     }
 }
@@ -1624,6 +1627,8 @@ static void save_settings(void) {
         show_gauge = true;
         gauge_select = 1;
     }
+
+    state = state_skip;
 #else
     static bool saving = false;
     static char state = FLASH_Idle;
