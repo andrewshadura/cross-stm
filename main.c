@@ -1247,8 +1247,8 @@ void draw_nothing(void) {
 
                     case 8: {
                         uint8_t status[2];
-                        if (Compass_Read(0x02, &status)) {
-                            if ((status[0] & 0x3) == 0x01) {
+                        if (once && Compass_Read(0x02, &status)) {
+                            if ((status[0] & 0x2) == 0x0) {
                                 compass_setup_state++;
                             }
                         }
