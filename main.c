@@ -85,6 +85,8 @@ extern void Delay(volatile int i) {
     for (; i != 0; i--);
 }
 
+#define MAX_ROW 400
+
 uint16_t row = 0;
 
 uint16_t adccal = 0;
@@ -1540,7 +1542,7 @@ void draw_gauge(void) {
 }
 
 void HSYNC(void) {
-    if (row < 400) {
+    if (row < MAX_ROW) {
         row++;
     }
 
