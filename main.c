@@ -1606,7 +1606,8 @@ enum {
 };
 
 static void save_settings(void) {
-#if 0
+#if 1
+    SPI_Cmd(SPI1, DISABLE);
     FLASH_Unlock();
     FLASH_ErasePage((uint32_t)&settings0);
     int i, words = (sizeof(settings) + 3) / 4;
@@ -1615,7 +1616,15 @@ static void save_settings(void) {
         FLASH_ProgramWord(((uint32_t)&(((uint32_t *)&settings0)[i])),
                           (((uint32_t *)&settings)[i]));
     }
-#endif
+    SPI_Cmd(SPI1, ENABLE);
+
+    save_settings_request = false;
+    force_save_settings = false;
+    if (show_saving) {
+        show_gauge = true;
+        gauge_select = 1;
+    }
+#else
     static bool saving = false;
     static char state = FLASH_Idle;
 
@@ -1671,6 +1680,7 @@ static void save_settings(void) {
             }
         }
     }
+#endif
 }
 
 #if 1
