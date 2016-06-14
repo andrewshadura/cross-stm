@@ -330,6 +330,7 @@ bool boot = true;
 
 uint8_t compass_retries = 0;
 bool live_compass = true;
+bool compass_off_request = false;
 int16_t azimuth = 0;
 
 void update_status(void) {
@@ -691,6 +692,7 @@ void send2_packet(void);
 
 static void switch_move_menu(int button) {
     finish_move(button);
+    compass_off_request = false;
     live_compass = true;
     show_cross = false;
     show_coords = false;
@@ -852,7 +854,7 @@ static void set_move_cross(int button) {
     current_menu = &move_cross_menu;
     show_coords = true;
     show_cross = true;
-    live_compass = false;
+    compass_off_request = true;
 }
 
 static void cross_xy(int button) {
@@ -971,7 +973,7 @@ static void calibrate_enter(int button) {
 static void compass_setup(int button) {
     menu = 2;
     show_cross = false;
-    live_compass = false;
+    compass_off_request = true;
     show_menu = true;
     current_menu = &compass_setup_menu;
     menu_height = compass_setup_x_height;
@@ -1223,9 +1225,14 @@ void draw_nothing(void) {
                 if (Compass_Read(0x00, (void *) &azimuth)) {
                     read_compass_request = false;
                     compass_retries = 50;
+                    if (compass_off_request) {
+                        live_compass = false;
+                        compass_off_request = false;
+                    }
                 }
             }
             if (compass_setup_state) {
+                if (!live_compass) {
                 switch (compass_setup_state) {
                     case 1:
                         if (Compass_Write(0x02, 0x01)) {
@@ -1267,6 +1274,7 @@ void draw_nothing(void) {
                             live_compass = true;
                         }
                         break;
+                }
                 }
             }
 
