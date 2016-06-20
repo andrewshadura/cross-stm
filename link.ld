@@ -2,7 +2,7 @@ OUTPUT_FORMAT ("elf32-littlearm", "elf32-bigarm", "elf32-littlearm")
 /* Internal Memory Map*/
 MEMORY
 {
-	rom (rx)  : ORIGIN = 0x08000000, LENGTH = 0x00008000
+	rom (rx)  : ORIGIN = 0x08000000, LENGTH = 0x00010000
 	ram (rwx) : ORIGIN = 0x20000000, LENGTH = 0x00001000
 }
 
@@ -36,12 +36,12 @@ SECTIONS
 		KEEP(*(.eh_fram e*))
 	} > rom 
 
-    .flash.settings0 0x08007800:
+    .flash.settings0 0x0800f800:
     {
         KEEP(*(.flash.settings0))
     } > rom
 
-    .flash.settings1 0x08007c00:
+    .flash.settings1 0x0800fc00:
     {
         KEEP(*(.flash.settings1))
     } > rom

@@ -12,7 +12,7 @@ DEBUG ?= -g
 
 CPU_FAMILY ?= cortex-m0
 
-CPU ?= STM32F051K6
+CPU ?= STM32F051K8
 
 WARN ?= -Wall
 
