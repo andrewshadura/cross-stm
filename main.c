@@ -533,6 +533,9 @@ int helper_width = helper_en_width;
 int helper_height = helper_en_height;
 
 const char (* helper_bits)[helper_en_width / 8] = helper_en_bits;
+const char (* compass_setup_x_bits)[menu_en_width / 8] = compass_setup_x_en_bits;
+const char (* compass_setup_y_bits)[menu_en_width / 8] = compass_setup_y_en_bits;
+const char (* compass_setup_z_bits)[menu_en_width / 8] = compass_setup_z_en_bits;
 
 int saving_min = SAVING_EN_MIN;
 int saving_max = SAVING_EN_MAX;
@@ -549,6 +552,9 @@ void set_language(void) {
             helper_height = helper_en_height;
             saving_min = SAVING_EN_MIN;
             saving_max = SAVING_EN_MAX;
+            compass_setup_x_bits = compass_setup_x_en_bits;
+            compass_setup_y_bits = compass_setup_y_en_bits;
+            compass_setup_z_bits = compass_setup_z_en_bits;
         } break;
         case LANG_RU: {
             menu_bits = menu_ru_bits;
@@ -976,7 +982,7 @@ static void compass_setup(int button) {
     compass_off_request = true;
     show_menu = true;
     current_menu = &compass_setup_menu;
-    menu_height = compass_setup_x_height;
+    current_menu_height = menu_height = compass_setup_x_en_height;
     compass_setup_state = 1;
     real_start_inv = start_inv = 0;
     real_end_inv = end_inv = 0;
@@ -1271,6 +1277,7 @@ void draw_nothing(void) {
                             show_cross = true;
                             real_start_inv = start_inv = MAINWIN_START + 3 + current_item * 16;
                             real_end_inv = end_inv = MAINWIN_START + 14 + current_item * 16;
+                            current_menu_height = menu_height;
                             live_compass = true;
                         }
                         break;
