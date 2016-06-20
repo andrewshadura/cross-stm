@@ -72,10 +72,10 @@ struct settings_t {
     int16_t cross_y_off;
 };
 
-struct settings_t __attribute__((section (".flash.page30"))) settings0;/* = {
+struct settings_t __attribute__((section (".flash.settings0"))) settings0;/* = {
     .invalid = 0xffffffff
 };*/
-struct settings_t __attribute__((section (".flash.page31"))) settings1;/* = {
+struct settings_t __attribute__((section (".flash.settings1"))) settings1;/* = {
     .invalid = 0xffffffff
 };*/
 

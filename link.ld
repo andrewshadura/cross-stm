@@ -36,14 +36,14 @@ SECTIONS
 		KEEP(*(.eh_fram e*))
 	} > rom 
 
-    .flash.page30 0x08007800:
+    .flash.settings0 0x08007800:
     {
-        KEEP(*(.flash.page30))
+        KEEP(*(.flash.settings0))
     } > rom
 
-    .flash.page31 0x08007c00:
+    .flash.settings1 0x08007c00:
     {
-        KEEP(*(.flash.page31))
+        KEEP(*(.flash.settings1))
     } > rom
 
 	.ARM.extab : 
