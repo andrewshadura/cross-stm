@@ -27,9 +27,9 @@
 
 #include "compass.h"
 
-#include "compass-setup-x.h"
-#include "compass-setup-y.h"
-#include "compass-setup-z.h"
+#include "compass-setup-x-en.h"
+#include "compass-setup-y-en.h"
+#include "compass-setup-z-en.h"
 
 /* statusbar_width is the width of the bitmap */
 /* STATUSBAR_WIDTH is the width of the actual statusbar */
