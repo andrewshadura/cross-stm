@@ -30,6 +30,9 @@
 #include "compass-setup-x-en.h"
 #include "compass-setup-y-en.h"
 #include "compass-setup-z-en.h"
+#include "compass-setup-x-ru.h"
+#include "compass-setup-y-ru.h"
+#include "compass-setup-z-ru.h"
 
 /* statusbar_width is the width of the bitmap */
 /* STATUSBAR_WIDTH is the width of the actual statusbar */
@@ -566,6 +569,9 @@ void set_language(void) {
             helper_height = helper_ru_height;
             saving_min = SAVING_RU_MIN;
             saving_max = SAVING_RU_MAX;
+            compass_setup_x_bits = compass_setup_x_ru_bits;
+            compass_setup_y_bits = compass_setup_y_ru_bits;
+            compass_setup_z_bits = compass_setup_z_ru_bits;
         } break;
     }
 }
