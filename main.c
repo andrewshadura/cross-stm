@@ -1097,7 +1097,7 @@ void EXTI2_3_IRQHandler(void)
     {
         pulse_width = TIM6->CNT;
         TIM6->CNT = 0;
-        if ((pulse_width < 2700) && (row > 255)) {
+        if ((pulse_width < 2500) && (row > 255)) {
             pulses++;
             if (pulses == 3) {
                 found = true;
