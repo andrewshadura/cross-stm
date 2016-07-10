@@ -1395,11 +1395,15 @@ void draw_status(void) {
                             b = (((((uint16_t)ptr[compass_bits[j - 1]]) << 8) |
                                  ptr[compass_bits[j]]) >> (-s)) & 0xff;
                         } else*/
+                        if (status_row < 16) {
                         if (s == 0xff) {
                             b = 0;
                         } else {
                             b = (((((uint16_t)ptr[compass_bits[j + 1]]) << 8) |
                                  ptr[compass_bits[j]]) >> s) & 0xff;
+                        }
+                        } else {
+                            b = (i == 26) ? 0x01 : 0;
                         }
                         SPI_SendData8(SPI1, ~(b));
                         while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
@@ -1419,11 +1423,13 @@ void draw_status(void) {
                         SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[i]]));
                         while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
                     }
-                    const char * ptr2 = &menu_bits[current_item * 16 + status_row][0];
-                    for (; i < right; i++) {
-                        SPI_SendData8(SPI1, ~(*(ptr2++)));
-                        while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
-                        if (((*(ptr2)) == (*(ptr2 - 1))) && ((*(ptr2)) == 0)) break;
+                    /* if (status_row < 16) */ {
+                        const char * ptr2 = &menu_bits[current_item * 16 + status_row][0];
+                        for (; i < right; i++) {
+                            SPI_SendData8(SPI1, ~(*(ptr2++)));
+                            while (SPI_GetTransmissionFIFOStatus(SPI1) != SPI_TransmissionFIFOStatus_HalfFull);
+                            if (((*(ptr2)) == (*(ptr2 - 1))) && ((*(ptr2)) == 0)) break;
+                        }
                     }
                     for (; i < (STATUSBAR_WIDTH / 8) - 2; i++) {
                         SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[i]]));
@@ -1459,7 +1465,7 @@ void draw_status(void) {
                 }
                 SPI_SendData8(SPI1, 0xff);
 
-    if (row == (STATUSBAR_START + 16)) {
+    if (row == (STATUSBAR_START + 16 + 4)) {
         current_fn = draw_nothing;
     }
 }
