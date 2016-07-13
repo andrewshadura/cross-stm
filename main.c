@@ -795,9 +795,9 @@ static void enter_gauge(int button) {
 
 static void update_brightness(int value) {
     if (inverted) {
-        DAC_SetChannel1Data(DAC_Align_12b_R, 0x3ff - 128 - value * 16);
+        DAC_SetChannel1Data(DAC_Align_12b_R, 0x3ff - 128 - value * 16 - 128);
     } else {
-        DAC_SetChannel1Data(DAC_Align_12b_R, 0x3ff + value * 16);
+        DAC_SetChannel1Data(DAC_Align_12b_R, 0x3ff + value * 16 - 128);
     }
 }
 
