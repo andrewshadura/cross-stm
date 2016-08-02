@@ -438,25 +438,23 @@ void update_status(void) {
         }
     }
 
-    #if 0
-    if (live_compass) {
+    #if 1
+    if (live_compass && (battery_low < 80) && (menu < 2)) {
     uint16_t qw;
     if (azimuth < 0) {
-        qw = -azimuth;
-        statusbar_ram_bits[2] = CHARGEN_MINUS;
+        qw = 360 + azimuth;
     } else {
         qw = azimuth;
-        statusbar_ram_bits[2] = CHARGEN_PLUS;
     }
-    statusbar_ram_bits[7] = CHARGEN_NUMBERS + qw % 10;
+    statusbar_ram_bits[31] = CHARGEN_NUMBERS + qw % 10;
     qw /= 10;
-    statusbar_ram_bits[6] = CHARGEN_NUMBERS + qw % 10;
+    statusbar_ram_bits[30] = CHARGEN_NUMBERS + qw % 10;
     qw /= 10;
-    statusbar_ram_bits[5] = CHARGEN_NUMBERS + qw % 10;
-    qw /= 10;
-    statusbar_ram_bits[4] = CHARGEN_NUMBERS + qw % 10;
-    qw /= 10;
-    statusbar_ram_bits[3] = CHARGEN_NUMBERS + qw % 10;
+    statusbar_ram_bits[29] = CHARGEN_NUMBERS + qw % 10;
+    } else {
+    statusbar_ram_bits[31] = 0;
+    statusbar_ram_bits[30] = 0;
+    statusbar_ram_bits[29] = 0;
     }
     #endif
 }
@@ -1457,11 +1455,11 @@ void draw_status(void) {
                     }
                 }
                 if (batteryblink && (battery_low == 80)) {
+                    SPI_SendData8(SPI1, ~(ptr[i]));
+                    SPI_SendData8(SPI1, ~(ptr[i + 1]));
+                } else {
                     SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[i]]));
                     SPI_SendData8(SPI1, ~(ptr[statusbar_ram_bits[i + 1]]));
-                } else {
-                    SPI_SendData8(SPI1, 0xff);
-                    SPI_SendData8(SPI1, 0xff);
                 }
                 SPI_SendData8(SPI1, 0xff);
 
