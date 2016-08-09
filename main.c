@@ -505,7 +505,7 @@ static void compass_setup_confirm(int button);
 #define STEPS 5
 #define STEPWIDTH (1024/STEPS)
 
-uint8_t codes[] = {button_menu, button_up, button_down, button_right, button_left, 0};
+uint8_t codes[] = {button_menu, button_left, button_right, button_down, button_up, 0};
 uint8_t debounced_code = 0;
 volatile int8_t hcount = 0;
 volatile bool ad_done = false;
